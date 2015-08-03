@@ -1,0 +1,9 @@
+#to install:
+#===========
+
+git clone https://github.com/teleshoes/tvchan.git
+cd tvchan
+perl dependency-install.pl
+perl install.pl
+
+#===========
