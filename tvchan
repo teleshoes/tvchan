@@ -4,6 +4,10 @@ use warnings;
 use POSIX ":sys_wait_h";
 use Time::HiRes qw(sleep time);
 
+# tvchan
+# Copyright 2014,2015 Elliot Wolk
+# Licensed under the GNU General Public License v3 or later
+
 my @videoExt = qw(
   mkv mks mk3d
   avi
