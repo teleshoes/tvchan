@@ -6,7 +6,7 @@ my $prefix = "/usr";
 
 sub main(@){
   die "Usage: $0\n" if @_ > 0;
-  system "sudo", "cp", "tvchan", "$prefix/bin";
+  system "sudo", "cp", "tvchan", "imdb", "$prefix/bin";
 }
 
 &main(@ARGV);
