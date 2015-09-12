@@ -76,7 +76,9 @@ my $usage = "Usage:
   [-m|--music]
     include (@musicExt) instead of just (@videoExt)
 
-  --autoskip  | --autoskip=SECONDS
+  --autoskip=SECONDS
+  [-a|--autoskip] SECONDS
+  [-a|--autoskip]
      start in autoskip mode, and optionally set the delay to SECONDS
        {default is $defaultAutoSkipDelay}
      SECONDS is the number of seconds to wait before running forward
@@ -92,9 +94,14 @@ sub main(@){
   my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
     my $arg = shift;
-    if($arg =~ /^--autoskip(?:=(\d+))?$/){
+    if($arg =~ /^--autoskip=(\d+)$/){
       $autoSkip = 1;
-      $autoSkipDelay = $1 if defined $1;
+      $autoSkipDelay = $1;
+    }elsif($arg =~ /^(-a|--autoskip)$/ and @_ > 0 and $_[0] =~ /^\d+$/){
+      $autoSkip = 1;
+      $autoSkipDelay = shift;
+    }elsif($arg =~ /^(-a|--autoskip)$/){
+      $autoSkip = 1;
     }elsif($arg =~ /^(-b|--beginning|--start)$/){
       $begin = 1;
     }elsif($arg =~ /^(-m|--music)$/){
