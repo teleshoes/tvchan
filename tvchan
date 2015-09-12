@@ -67,13 +67,13 @@ my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
 
   OPTS:
-  -s STRING
+  [-s|--search|--imdb] STRING
     use imdb to filter files
 
-  -b
+  [-b|--beginning|--start]
     always start at the beginning of the file
 
-  -m
+  [-m|--music]
     include (@musicExt) instead of just (@videoExt)
 
   --autoskip  | --autoskip=SECONDS
@@ -95,11 +95,11 @@ sub main(@){
     if($arg =~ /^--autoskip(?:=(\d+))?$/){
       $autoSkip = 1;
       $autoSkipDelay = $1 if defined $1;
-    }elsif($arg =~ /^(-b)$/){
+    }elsif($arg =~ /^(-b|--beginning|--start)$/){
       $begin = 1;
-    }elsif($arg =~ /^(-m)$/){
+    }elsif($arg =~ /^(-m|--music)$/){
       $music = 1;
-    }elsif($arg =~ /^(-s)$/ and @_ > 0){
+    }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
       $search = shift;
     }else{
       die $usage;
