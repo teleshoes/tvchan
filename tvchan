@@ -55,7 +55,7 @@ for my $cmd(values %commands){
 }
 
 sub execPlay($$$);
-sub getRandomEntry($);
+sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf();
 sub writeMplayerConf();
@@ -69,6 +69,9 @@ my $usage = "Usage:
   OPTS:
   [-b|--beginning|--start]
     always start at the beginning of the file
+
+  [-u|--uniq|--unique]
+    show each file at most only once
 
   [-m|--music]
     include (@musicExt) instead of just (@videoExt)
@@ -90,12 +93,15 @@ sub main(@){
   my $autoSkip = 0;
   my $music = 0;
   my $begin = 0;
+  my $unique = 0;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
     my $arg = shift;
     if($arg =~ /^(-b|--beginning|--start)$/){
       $begin = 1;
+    }elsif($arg =~ /^(-u|--uniq|--unique)$/ and @_ > 0){
+      $unique = 1;
     }elsif($arg =~ /^(-m|--music)$/){
       $music = 1;
     }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
@@ -157,7 +163,9 @@ sub main(@){
       ($file, $pos) = @{$history[$index]};
     }else{
       die "no files found\n" if @$files == 0;
-      $file = getRandomEntry $files;
+      my $deleteEntry = $unique;
+      $file = getRandomEntry $files, $deleteEntry;
+
       if($begin){
         $pos = 0;
       }else{
@@ -229,10 +237,12 @@ sub execPlay($$$){
   ;
 }
 
-sub getRandomEntry($){
-  my $arr = shift;
+sub getRandomEntry($$){
+  my ($arr, $deleteEntry) = @_;
   my $randIndex = rand @$arr;
-  return $$arr[$randIndex];
+  my $entry = $$arr[$randIndex];
+  splice @$arr, $randIndex, 1 if $deleteEntry;
+  return $entry;
 }
 
 sub getRandomPos($){
