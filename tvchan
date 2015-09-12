@@ -149,6 +149,7 @@ sub main(@){
     if($index < @history){
       ($file, $pos) = @{$history[$index]};
     }else{
+      die "no files found\n" if @$files == 0;
       $file = getRandomEntry $files;
       if($begin){
         $pos = 0;
