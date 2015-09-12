@@ -67,14 +67,14 @@ my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
 
   OPTS:
-  [-s|--search|--imdb] STRING
-    use imdb to filter files
-
   [-b|--beginning|--start]
     always start at the beginning of the file
 
   [-m|--music]
     include (@musicExt) instead of just (@videoExt)
+
+  [-s|--search|--imdb] STRING
+    use 'imdb' crawling+caching script to filter files
 
   --autoskip=SECONDS
   [-a|--autoskip] SECONDS
@@ -94,7 +94,13 @@ sub main(@){
   my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
     my $arg = shift;
-    if($arg =~ /^--autoskip=(\d+)$/){
+    if($arg =~ /^(-b|--beginning|--start)$/){
+      $begin = 1;
+    }elsif($arg =~ /^(-m|--music)$/){
+      $music = 1;
+    }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
+      $search = shift;
+    }elsif($arg =~ /^--autoskip=(\d+)$/){
       $autoSkip = 1;
       $autoSkipDelay = $1;
     }elsif($arg =~ /^(-a|--autoskip)$/ and @_ > 0 and $_[0] =~ /^\d+$/){
@@ -102,12 +108,6 @@ sub main(@){
       $autoSkipDelay = shift;
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
-    }elsif($arg =~ /^(-b|--beginning|--start)$/){
-      $begin = 1;
-    }elsif($arg =~ /^(-m|--music)$/){
-      $music = 1;
-    }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
-      $search = shift;
     }else{
       die $usage;
     }
