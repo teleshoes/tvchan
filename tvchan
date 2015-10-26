@@ -28,9 +28,10 @@ my @videoExt = qw(
 my @musicExt = qw(mp3 flac ogg m4a wma wav);
 
 my $msgLen = 60;
-my $mplayerConfFile = "/tmp/mplayer-tvchan.conf";
-my $inputCmdFile = "/tmp/mplayer-tvchan-commands";
-my $inputConfFile = "/tmp/mplayer-tvchan-input.conf";
+my $nowMillis = int(time*1000);
+my $mplayerConfFile = "/tmp/mplayer-tvchan-$nowMillis.conf";
+my $inputCmdFile = "/tmp/mplayer-tvchan-commands-$nowMillis";
+my $inputConfFile = "/tmp/mplayer-tvchan-input-$nowMillis.conf";
 my $defaultAutoSkipDelay = 30;
 
 my $mplayerConf = {
