@@ -229,13 +229,15 @@ sub execPlay($$$){
   writeInputCommands(
     "osd_show_text \"$msg\" 1000",
   );
-  exec "mplayer",
+  my @cmd = ("mplayer",
     "-input", "conf=$inputConfFile",
     "-input", "file=$inputCmdFile",
     "-include", $mplayerConfFile,
     "-ss", $pos,
     $file,
-  ;
+  );
+  print "@cmd\n";
+  exec @cmd;
 }
 
 sub getRandomEntry($$){
