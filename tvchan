@@ -93,6 +93,11 @@ my $usage = "Usage:
   -nofs | --nofs | --nofullscreen
     no fullscreen: pass '-nofs' to mplayer
 
+  -g WIDTHxHEIGHT | -geometry WIDTHxHEIGHT | --geometry WIDTHxHEIGHT | --geometry=WIDTHxHEIGHT
+     set geometry to mplayer with '-geometry WIDTHxHEIGHT'
+     WIDTH is the number of pixels wide the mplayer window should be
+     HEIGHT is the number of pixels tall the mplayer window should be
+
   -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
     set the mplayer window title with '-title TITLE'
     default is $defaultWindowTitle
@@ -104,6 +109,7 @@ sub main(@){
   my $begin = 0;
   my $unique = 0;
   my $fullscreen = 1;
+  my $geometry = undef;
   my $windowTitle = $defaultWindowTitle;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
@@ -129,6 +135,10 @@ sub main(@){
       $fullscreen = 1;
     }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
       $fullscreen = 0;
+    }elsif($arg =~ /^--geometry=(\d+x\d+)$/){
+      $geometry = $1;
+    }elsif($arg =~ /^(-g|-geometry|--geometry)$/ and @_ > 0 and $_[0] =~ /^(\d+x\d+)$/){
+      $geometry = shift;
     }elsif($arg =~ /^--title=(.+)$/){
       $windowTitle = $1;
     }elsif($arg =~ /^(-t|-title|--title)$/ and @_ > 0){
@@ -145,6 +155,7 @@ sub main(@){
 
   my @mplayerArgs;
   push @mplayerArgs, ($fullscreen ? "-fs" : "-nofs");
+  @mplayerArgs = (@mplayerArgs, "-geometry", $geometry) if defined $geometry;
   push @mplayerArgs, ("-title", $windowTitle);
 
   writeInputConf;
