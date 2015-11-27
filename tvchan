@@ -55,7 +55,7 @@ for my $cmd(values %commands){
   $$inputConf{$_} = "quit $exitCode" foreach @$keys;
 }
 
-sub execPlay($$$);
+sub execPlay($$$@);
 sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf();
@@ -125,6 +125,8 @@ sub main(@){
   my @dirs = @_;
   die $usage if @dirs == 0;
 
+  my @mplayerArgs;
+
   writeInputConf;
   writeMplayerConf;
 
@@ -189,7 +191,7 @@ sub main(@){
     my $pid = fork;
     my $start = time;
     if($pid == 0){
-      execPlay $file, $pos, $msg;
+      execPlay $file, $pos, $msg, @mplayerArgs;
     }else{
       my $kid;
       do{
@@ -224,12 +226,13 @@ sub main(@){
   }
 }
 
-sub execPlay($$$){
-  my ($file, $pos, $msg) = @_;
+sub execPlay($$$@){
+  my ($file, $pos, $msg, @mplayerArgs) = @_;
   writeInputCommands(
     "osd_show_text \"$msg\" 1000",
   );
   my @cmd = ("mplayer",
+    @mplayerArgs,
     "-input", "conf=$inputConfFile",
     "-input", "file=$inputCmdFile",
     "-include", $mplayerConfFile,
