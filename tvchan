@@ -85,6 +85,12 @@ my $usage = "Usage:
      SECONDS (optional) is the number of seconds to wait before running forward
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
+
+  -fs | --fs | --fullscreen
+    fullscreen: pass '-fs' to mplayer (this is the default)
+
+  -nofs | --nofs | --nofullscreen
+    no fullscreen: pass '-nofs' to mplayer
 ";
 
 sub main(@){
@@ -92,6 +98,7 @@ sub main(@){
   my $music = 0;
   my $begin = 0;
   my $unique = 0;
+  my $fullscreen = 1;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
@@ -112,6 +119,10 @@ sub main(@){
       $autoSkipDelay = shift;
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
+    }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
+      $fullscreen = 1;
+    }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
+      $fullscreen = 0;
     }else{
       die $usage;
     }
@@ -123,7 +134,7 @@ sub main(@){
   die $usage if @dirs == 0;
 
   my @mplayerArgs;
-  push @mplayerArgs, "-fs";
+  push @mplayerArgs, ($fullscreen ? "-fs" : "-nofs");
 
   writeInputConf;
   writeMplayerConf;
