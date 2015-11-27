@@ -68,21 +68,21 @@ my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
 
   OPTS:
-  [-b|--beginning|--start]
+  -b|--beginning|--start
     always start at the beginning of the file
 
-  [-u|--uniq|--unique]
+  -u|--uniq|--unique
     show each file at most only once
 
-  [-m|--music]
+  -m|--music
     include (@musicExt) instead of just (@videoExt)
 
-  [-s|--search|--imdb] STRING
+  -s|--search|--imdb STRING
     use 'imdb' crawling+caching script to filter files
 
+  -a [SECONDS]
+  --autoskip [SECONDS]
   --autoskip=SECONDS
-  [-a|--autoskip] SECONDS
-  [-a|--autoskip]
      start in autoskip mode, and optionally set the delay to SECONDS
        {default is $defaultAutoSkipDelay}
      SECONDS is the number of seconds to wait before running forward
