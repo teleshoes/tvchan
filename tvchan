@@ -35,7 +35,6 @@ my $inputConfFile = "/tmp/mplayer-tvchan-input-$nowMillis.conf";
 my $defaultAutoSkipDelay = 30;
 
 my $mplayerConf = {
-  "fs"                => "yes",
   "subfont-osd-scale" => 2,
 };
 
@@ -126,6 +125,7 @@ sub main(@){
   die $usage if @dirs == 0;
 
   my @mplayerArgs;
+  push @mplayerArgs, "-fs";
 
   writeInputConf;
   writeMplayerConf;
