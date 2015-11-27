@@ -93,10 +93,9 @@ my $usage = "Usage:
   -nofs | --nofs | --nofullscreen
     no fullscreen: pass '-nofs' to mplayer
 
-  -g WIDTHxHEIGHT | -geometry WIDTHxHEIGHT | --geometry WIDTHxHEIGHT | --geometry=WIDTHxHEIGHT
-     set geometry to mplayer with '-geometry WIDTHxHEIGHT'
-     WIDTH is the number of pixels wide the mplayer window should be
-     HEIGHT is the number of pixels tall the mplayer window should be
+  -g GEOMETRY | -geometry GEOMETRY | --geometry GEOMETRY | --geometry=GEOMETRY
+     set geometry to mplayer with '-geometry GEOMETRY'
+     e.g: '-geometry 1920x1080'
 
   -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
     set the mplayer window title with '-title TITLE'
@@ -135,9 +134,9 @@ sub main(@){
       $fullscreen = 1;
     }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
       $fullscreen = 0;
-    }elsif($arg =~ /^--geometry=(\d+x\d+)$/){
+    }elsif($arg =~ /^--geometry=(.+)$/){
       $geometry = $1;
-    }elsif($arg =~ /^(-g|-geometry|--geometry)$/ and @_ > 0 and $_[0] =~ /^(\d+x\d+)$/){
+    }elsif($arg =~ /^(-g|-geometry|--geometry)$/ and @_ > 0){
       $geometry = shift;
     }elsif($arg =~ /^--title=(.+)$/){
       $windowTitle = $1;
