@@ -32,6 +32,7 @@ my $nowMillis = int(time*1000);
 my $mplayerConfFile = "/tmp/mplayer-tvchan-$nowMillis.conf";
 my $inputCmdFile = "/tmp/mplayer-tvchan-commands-$nowMillis";
 my $inputConfFile = "/tmp/mplayer-tvchan-input-$nowMillis.conf";
+my $defaultWindowTitle = "tvchan-mplayer";
 my $defaultAutoSkipDelay = 30;
 
 my $mplayerConf = {
@@ -91,6 +92,10 @@ my $usage = "Usage:
 
   -nofs | --nofs | --nofullscreen
     no fullscreen: pass '-nofs' to mplayer
+
+  -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
+    set the mplayer window title with '-title TITLE'
+    default is $defaultWindowTitle
 ";
 
 sub main(@){
@@ -99,6 +104,7 @@ sub main(@){
   my $begin = 0;
   my $unique = 0;
   my $fullscreen = 1;
+  my $windowTitle = $defaultWindowTitle;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
@@ -123,6 +129,10 @@ sub main(@){
       $fullscreen = 1;
     }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
       $fullscreen = 0;
+    }elsif($arg =~ /^--title=(.+)$/){
+      $windowTitle = $1;
+    }elsif($arg =~ /^(-t|-title|--title)$/ and @_ > 0){
+      $windowTitle = shift;
     }else{
       die $usage;
     }
@@ -135,6 +145,7 @@ sub main(@){
 
   my @mplayerArgs;
   push @mplayerArgs, ($fullscreen ? "-fs" : "-nofs");
+  push @mplayerArgs, ("-title", $windowTitle);
 
   writeInputConf;
   writeMplayerConf;
