@@ -4,170 +4,87 @@ use warnings;
 use POSIX ":sys_wait_h";
 use Time::HiRes qw(sleep time);
 
-# tvchan
-# Copyright 2014,2015 Elliot Wolk
-# Licensed under the GNU General Public License v3 or later
-
-my @videoExt = qw(
-  mkv mks mk3d
-  avi
-  webm
-  flv
-  ogv
-  drc
-  mov qt
-  wmv
-  mp4 m4p m4v
-  mpg mpeg mpe mpv m2v m2s m1s
-  svi
-  3gp 3g2
-  divx
-  vob
-  m2ts
-);
-my @musicExt = qw(mp3 flac ogg m4a wma wav);
+my @ext = qw(mkv mp4 avi wmv m2ts);
 
 my $msgLen = 60;
-my $nowMillis = int(time*1000);
-my $mplayerConfFile = "/tmp/mplayer-tvchan-$nowMillis.conf";
-my $inputCmdFile = "/tmp/mplayer-tvchan-commands-$nowMillis";
-my $inputConfFile = "/tmp/mplayer-tvchan-input-$nowMillis.conf";
-my $defaultWindowTitle = "tvchan-mplayer";
+
+my $tmpDir = "/tmp/tvchan";
+my $mplayerConfFile = "$tmpDir/mplayer.conf";
+my $inputCmdFile = "$tmpDir/initcmds";
+my $inputCmdFifo = "$tmpDir/mplayer-fifo";
+my $tvchanFifo = "$tmpDir/tvchan-fifo";
+my $inputConfFile = "$tmpDir/input.conf";
 my $defaultAutoSkipDelay = 30;
 
 my $mplayerConf = {
+  "fs"                => "yes",
   "subfont-osd-scale" => 2,
 };
 
-my $exitCode = 209;
 my %commands = (
-  back     => [$exitCode++, [qw( F9  1       )]],
-  forward  => [$exitCode++, [qw( F10 2 ENTER )]],
-  end      => [$exitCode++, [qw( F11 3       )]],
-  quit     => [$exitCode++, [qw( F12 4 q     )]],
-  autoskip => [$exitCode++, [qw( F5  5       )]],
+  back     => [qw( F9  1       )],
+  forward  => [qw( F10 2 ENTER )],
+  end      => [qw( F11 3       )],
+  quit     => [qw( F12 4 q     )],
+  autoskip => [qw( F5  5       )],
 );
-my %exitCodes = map {$_ => ${$commands{$_}}[0]} keys %commands;
+my %exitCodes = map {$_ => 0} keys %commands;
 
 my $inputConf = {};
-for my $cmd(values %commands){
-  my ($exitCode, $keys) = @$cmd;
-  $$inputConf{$_} = "quit $exitCode" foreach @$keys;
+for my $cmd(keys %commands){
+  my $keys = $commands{$cmd};
+  $$inputConf{$_} = "run \"echo $cmd > $tvchanFifo\"" foreach @$keys;
 }
 
-sub execPlay($$$@);
-sub getRandomEntry($$);
+sub execMplayer($);
+sub ensureFile($);
+sub playFile($);
+sub mplayerCmd($);
+sub tvchanCmd($);
+sub getRandomEntry($);
 sub getRandomPos($);
 sub writeInputConf();
 sub writeMplayerConf();
-sub writeInputCommands(@);
 sub getProcLines(@);
-sub getProcLinesNoFail(@);
 
 my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
 
   OPTS:
-  -b | --beginning | --start
-    always start at the beginning of the file
-
-  -u | --uniq | --unique
-    show each file at most only once
-
-  -m | --music
-    include (@musicExt) instead of just (@videoExt)
-
-  -s STRING | --search STRING | --imdb STRING
-    use 'imdb' crawling+caching script to filter files
-
-  -a [SECONDS] | --autoskip [SECONDS] | --autoskip=SECONDS
+  --autoskip  | --autoskip=SECONDS
      start in autoskip mode, and optionally set the delay to SECONDS
        {default is $defaultAutoSkipDelay}
-     SECONDS (optional) is the number of seconds to wait before running forward
+     SECONDS is the number of seconds to wait before running forward
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
-
-  -fs | --fs | --fullscreen
-    fullscreen: pass '-fs' to mplayer (this is the default)
-
-  -nofs | --nofs | --nofullscreen
-    no fullscreen: pass '-nofs' to mplayer
-
-  -g GEOMETRY | -geometry GEOMETRY | --geometry GEOMETRY | --geometry=GEOMETRY
-     set geometry to mplayer with '-geometry GEOMETRY'
-     e.g: '-geometry 1920x1080'
-
-  -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
-    set the mplayer window title with '-title TITLE'
-    default is $defaultWindowTitle
 ";
 
 sub main(@){
+  system "mkdir", "-p", $tmpDir;
   my $autoSkip = 0;
-  my $music = 0;
-  my $begin = 0;
-  my $unique = 0;
-  my $fullscreen = 1;
-  my $geometry = undef;
-  my $windowTitle = $defaultWindowTitle;
   my $autoSkipDelay = $defaultAutoSkipDelay;
-  my $search;
   while(@_ > 0 and $_[0] =~ /^-/){
     my $arg = shift;
-    if($arg =~ /^(-b|--beginning|--start)$/){
-      $begin = 1;
-    }elsif($arg =~ /^(-u|--uniq|--unique)$/ and @_ > 0){
-      $unique = 1;
-    }elsif($arg =~ /^(-m|--music)$/){
-      $music = 1;
-    }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
-      $search = shift;
-    }elsif($arg =~ /^--autoskip=(\d+)$/){
+    if($arg =~ /^--autoskip(?:=(\d+))?$/){
       $autoSkip = 1;
-      $autoSkipDelay = $1;
-    }elsif($arg =~ /^(-a|--autoskip)$/ and @_ > 0 and $_[0] =~ /^\d+$/){
-      $autoSkip = 1;
-      $autoSkipDelay = shift;
-    }elsif($arg =~ /^(-a|--autoskip)$/){
-      $autoSkip = 1;
-    }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
-      $fullscreen = 1;
-    }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
-      $fullscreen = 0;
-    }elsif($arg =~ /^--geometry=(.+)$/){
-      $geometry = $1;
-    }elsif($arg =~ /^(-g|-geometry|--geometry)$/ and @_ > 0){
-      $geometry = shift;
-    }elsif($arg =~ /^--title=(.+)$/){
-      $windowTitle = $1;
-    }elsif($arg =~ /^(-t|-title|--title)$/ and @_ > 0){
-      $windowTitle = shift;
+      $autoSkipDelay = $1 if defined $1;
     }else{
       die $usage;
     }
   }
 
-  my @ext = $music ? (@videoExt, @musicExt) : (@videoExt);
-
   my @dirs = @_;
   die $usage if @dirs == 0;
-
-  my @mplayerArgs;
-  push @mplayerArgs, ($fullscreen ? "-fs" : "-nofs");
-  @mplayerArgs = (@mplayerArgs, "-geometry", $geometry) if defined $geometry;
-  push @mplayerArgs, ("-title", $windowTitle);
 
   writeInputConf;
   writeMplayerConf;
 
   my @cmd;
   push @cmd, "find";
-  push @cmd, "-L";
   for my $dir(@dirs){
     die "\"$dir\" is not a directory\n" if not -d $dir;
     push @cmd, $dir;
   }
-  @cmd = (@cmd, "-type", "f");
   push @cmd, "-false";
   for my $ext(@ext){
     push @cmd, ("-or", "-iname", "*.$ext");
@@ -176,109 +93,144 @@ sub main(@){
   my $files = getProcLines @cmd;
   chomp foreach @$files;
 
-  if(defined $search){
-    my $newFiles = [];
-    for my $file(@$files){
-      my $imdb = join '', @{getProcLinesNoFail("imdb", "-c", $file)};
-      if($imdb =~ /$search/i){
-        push @$newFiles, $file;
+  my $state = {
+    files => $files,
+    dirs => [@dirs],
+    history => [],
+    index => 0,
+    curFile => undef,
+    curPos => undef,
+    curMsg => undef,
+  };
+
+  ensureFile $state;
+
+  my $start = time;
+
+  if(fork){
+    while(1){
+      my $pid = fork;
+      if($pid == 0){
+        execMplayer($state);
+      }else{
+        my $status;
+        my $kid;
+        do{
+          $kid = waitpid $pid, WNOHANG;
+          $status = $?;
+          $status /= 256 if $status > 256;
+          sleep 0.5;
+          if($autoSkip && time - $start > $autoSkipDelay){
+            $start = time;
+            print "\nauto-skipped\n";
+            tvchanCmd "forward";
+          }
+        } while $kid == 0;
+        tvchanCmd "forward";
       }
     }
-    $files = $newFiles;
-    print "SELECTED:\n" . join "\n", @$files;
   }
 
-  my @history;
-  my $index = 0;
-  while(1){
-    my ($file, $pos);
-    if($index < @history){
-      ($file, $pos) = @{$history[$index]};
-    }else{
-      die "no files found\n" if @$files == 0;
-      my $deleteEntry = $unique;
-      $file = getRandomEntry $files, $deleteEntry;
+  sleep 0.1;
 
-      if($begin){
-        $pos = 0;
-      }else{
-        $pos = getRandomPos $file;
-      }
-      push @history, [$file, $pos];
-    }
+  system "rm", $tvchanFifo;
+  system "mkfifo", $tvchanFifo;
 
-    my $msg = $file;
-    for my $dir(@dirs){
-      $msg =~ s/^$dir//;
-    }
-    my $len = length $msg;
-    if($len > $msgLen){
-      $msg = substr $msg, $len - $msgLen;
-    }
-
-    print "\n\nPLAYING: $file @ $pos\n\n";
-    my $status;
-    my $pid = fork;
-    my $start = time;
-    if($pid == 0){
-      execPlay $file, $pos, $msg, @mplayerArgs;
-    }else{
-      my $kid;
-      do{
-        $kid = waitpid $pid, WNOHANG;
-        $status = $?;
-        $status /= 256 if $status > 256;
-        sleep 0.5;
-        if($autoSkip && time - $start > $autoSkipDelay){
-          print "\nauto-skipped\n";
-          system "kill $pid";
-          waitpid $pid, 0;
-          $status = $exitCodes{forward};
-        }
-      } while $kid == 0;
-    }
-
-    if($status == $exitCodes{back}){
-      $index--;
-      $index = 0 if $index < 0;
-    }elsif($status == $exitCodes{forward} or $status == 0){
-      $index++;
-      $index = @history if $index > @history;
-    }elsif($status == $exitCodes{end}){
-      $index = @history;
-    }elsif($status == $exitCodes{quit}){
-      last;
-    }elsif($status == $exitCodes{autoskip}){
+  my $fh;
+  open($fh, "+< $tvchanFifo") or die "cannot read $tvchanFifo\n";
+  while (<$fh>){
+    my $cmd = $_;
+    chomp $cmd;
+    print "\n\n\n\n\nread command: $cmd\n\n";
+    if($cmd eq "back"){
+      $$state{index}--;
+      $$state{index} = 0 if $$state{index} < 0;
+      ensureFile $state;
+      playFile $state;
+    }elsif($cmd eq "forward"){
+      $$state{index}++;
+      $$state{index} = @{$$state{history}} if $$state{index} > @{$$state{history}};
+      ensureFile $state;
+      playFile $state;
+    }elsif($cmd eq "end"){
+      $$state{index} = @{$$state{history}};
+      ensureFile $state;
+      playFile $state;
+    }elsif($cmd eq "quit"){
+      mplayerCmd "quit";
+      exit 0;
+    }elsif($cmd eq "autoskip"){
       $autoSkip = not $autoSkip;
-    }elsif($status != 0){
-      die "\nunexpected mplayer exit code, terminating\n";
+    }else{
+      print "UNKNOWN COMMAND: $cmd\n";
     }
   }
 }
 
-sub execPlay($$$@){
-  my ($file, $pos, $msg, @mplayerArgs) = @_;
-  writeInputCommands(
-    "osd_show_text \"$msg\" 1000",
-  );
-  my @cmd = ("mplayer",
-    @mplayerArgs,
+sub execMplayer($){
+  my $state = shift;
+  print "\n\nPLAYING START FILE: $$state{curFile} @ $$state{curPos}\n\n";
+  system "rm", $inputCmdFifo;
+  system "mkfifo", $inputCmdFifo;
+  exec "mplayer",
     "-input", "conf=$inputConfFile",
     "-input", "file=$inputCmdFile",
+    "-input", "file=$inputCmdFifo",
     "-include", $mplayerConfFile,
-    "-ss", $pos,
-    $file,
-  );
-  print "@cmd\n";
-  exec @cmd;
+    "-ss", $$state{curPos},
+    $$state{curFile},
+  ;
 }
 
-sub getRandomEntry($$){
-  my ($arr, $deleteEntry) = @_;
+sub ensureFile($){
+  my $state = shift;
+  my $history = $$state{history};
+  my $index = $$state{index};
+  my ($file, $pos);
+  if($index < @$history){
+    ($file, $pos) = @{$$history[$index]};
+  }else{
+    $file = getRandomEntry $$state{files};
+    $pos = getRandomPos $file;
+    push @$history, [$file, $pos];
+  }
+
+  my $msg = $file;
+  for my $dir(@{$$state{dirs}}){
+    $msg =~ s/^$dir//;
+  }
+  my $len = length $msg;
+  if($len > $msgLen){
+    $msg = substr $msg, $len - $msgLen;
+  }
+  $$state{curFile} = $file;
+  $$state{curPos} = $pos;
+  $$state{curMsg} = $msg;
+}
+
+sub playFile($){
+  my $state = shift;
+  print "\n\nPLAYING: $$state{curFile} @ $$state{curPos}\n\n";
+  mplayerCmd "loadfile \"$$state{curFile}\"";
+  mplayerCmd "seek $$state{curPos} 1";
+  mplayerCmd "osd_show_text \"$$state{curMsg}\" 1000",
+}
+
+sub mplayerCmd($){
+  open FH, "> $inputCmdFifo" or die "Could not write to $inputCmdFifo\n";
+  print FH "$_[0]\n";
+  close FH;
+}
+sub tvchanCmd($){
+  open FH, "> $tvchanFifo" or die "Could not write to $tvchanFifo\n";
+  print FH "$_[0]\n";
+  close FH;
+}
+
+sub getRandomEntry($){
+  my $arr = shift;
   my $randIndex = rand @$arr;
-  my $entry = $$arr[$randIndex];
-  splice @$arr, $randIndex, 1 if $deleteEntry;
-  return $entry;
+  return $$arr[$randIndex];
 }
 
 sub getRandomPos($){
@@ -313,25 +265,12 @@ sub writeMplayerConf(){
   print FH $conf;
   close FH;
 }
-sub writeInputCommands(@){
-  my $cmds = '';
-  for my $cmd(@_){
-    $cmds .= "$cmd\n";
-  }
-  open FH, "> $inputCmdFile" or die "Could not write to $inputCmdFile\n";
-  print FH $cmds;
-  close FH;
-}
 
 sub getProcLines(@){
-  my $lines = getProcLinesNoFail @_;
-  die "Error running \"@_\"\n" if $? != 0;
-  return $lines;
-}
-sub getProcLinesNoFail(@){
   open FH, "-|", @_;
   my @lines = <FH>;
   close FH;
+  die "Error running \"@_\"\n" if $? != 0;
   return \@lines;
 }
 
