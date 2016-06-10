@@ -14,6 +14,7 @@ tvchan
 selects random positions in random video/music files in a directory
 and plays them with mplayer
 
+(see rewrite branch for mostly abandoned rewrite)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
