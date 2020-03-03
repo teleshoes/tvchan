@@ -232,8 +232,13 @@ sub main(@){
         sleep 0.5;
         if($autoSkip && time - $start > $autoSkipDelay){
           print "\nauto-skipped\n";
-          system "kill $pid";
-          waitpid $pid, 0;
+          if(not fork()){
+            sleep 1;
+            system "kill $pid";
+            waitpid $pid, 0;
+            exit 0;
+          }
+          $kid = 1;
           $status = $exitCodes{forward};
         }
       } while $kid == 0;
