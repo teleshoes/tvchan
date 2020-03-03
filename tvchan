@@ -46,6 +46,7 @@ my %commands = (
   end      => [$exitCode++, [qw( F11 3       )]],
   quit     => [$exitCode++, [qw( F12 4 q     )]],
   autoskip => [$exitCode++, [qw( F5  5       )]],
+  quitall  => [$exitCode++, [qw( DEL         )]],
 );
 my %exitCodes = map {$_ => ${$commands{$_}}[0]} keys %commands;
 
@@ -250,6 +251,8 @@ sub main(@){
       last;
     }elsif($status == $exitCodes{autoskip}){
       $autoSkip = not $autoSkip;
+    }elsif($status == $exitCodes{quitall}){
+      system "nohup pkill tvchan >/dev/null 2>/dev/null &";
     }elsif($status != 0){
       die "\nunexpected mplayer exit code, terminating\n";
     }
