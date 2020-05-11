@@ -257,7 +257,7 @@ sub main(@){
     }elsif($status == $exitCodes{autoskip}){
       $autoSkip = not $autoSkip;
     }elsif($status == $exitCodes{quitall}){
-      system "nohup pkill tvchan >/dev/null 2>/dev/null &";
+      system "nohup pkill -9 mplayer >/dev/null 2>/dev/null &";
     }elsif($status != 0){
       die "\nunexpected mplayer exit code, terminating\n";
     }
