@@ -234,7 +234,7 @@ sub omdb($){
 sub searchImdb($){
   my $q = shift;
   $q =~ s/[^a-zA-Z0-9]+/ /g;
-  my $url = "http://www.imdb.com/find?s=tt&q=$q";
+  my $url = "https://www.imdb.com/find?s=tt&q=$q";
   my $tmp = "/tmp/tmp-imdb";
   system "wget '$url' -O $tmp >/dev/null 2>/dev/null";
   open FH, "< $tmp" or die "Could not read $tmp\n";
