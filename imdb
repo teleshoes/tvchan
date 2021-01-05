@@ -9,6 +9,8 @@ my @ext = qw(mkv mp4 avi wmv m2ts);
 
 my $IMDB_SCAN_DIR = "$ENV{HOME}/.cache/imdb-scan";
 
+my $OMDB_API_KEY = "97562b5a";
+
 sub getQueries($);
 sub cleanUp($);
 sub getTT(@);
@@ -225,7 +227,7 @@ sub getMountPoint($){
 
 sub omdb($){
   my $tt = shift;
-  my $omdb = `wget http://www.omdbapi.com/?i=$tt -O - 2>/dev/null`;
+  my $omdb = `wget http://www.omdbapi.com/?apikey=$OMDB_API_KEY\\&i=$tt -O - 2>/dev/null`;
   return $omdb;
 }
 
