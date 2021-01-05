@@ -7,7 +7,7 @@ sub run(@);
 my $klompDir = "./klomp";
 
 sub main(@){
-  run "sudo", "apt-get", "install", "libav-tools", "mplayer";
+  run "sudo", "apt-get", "install", "mpv";
 
   if(-d $klompDir){
     chdir $klompDir;
