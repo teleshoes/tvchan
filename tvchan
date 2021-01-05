@@ -5,7 +5,7 @@ use POSIX ":sys_wait_h";
 use Time::HiRes qw(sleep time);
 
 # tvchan
-# Copyright 2014,2015 Elliot Wolk
+# Copyright 2014,2015,2021 Elliot Wolk
 # Licensed under the GNU General Public License v3 or later
 
 my @videoExt = qw(
@@ -29,14 +29,18 @@ my @musicExt = qw(mp3 flac ogg m4a wma wav);
 
 my $msgLen = 60;
 my $nowMillis = int(time*1000);
-my $mplayerConfFile = "/tmp/mplayer-tvchan-$nowMillis.conf";
-my $inputCmdFile = "/tmp/mplayer-tvchan-commands-$nowMillis";
-my $inputConfFile = "/tmp/mplayer-tvchan-input-$nowMillis.conf";
-my $defaultWindowTitle = "tvchan-mplayer";
+my $mpvConfFile = "/tmp/mpv-tvchan-$nowMillis.conf";
+my $inputCmdFile = "/tmp/mpv-tvchan-commands-$nowMillis";
+my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
+my $defaultWindowTitle = "tvchan-mpv";
 my $defaultAutoSkipDelay = 30;
 
-my $mplayerConf = {
-  "subfont-osd-scale" => 2,
+my $mpvConf = {
+  "osd-scale" => 1.5,
+  "osd-scale-by-window" => "no",
+  "osd-bar" => "yes",
+  "osd-level" => 1,
+  "osd-msg1" => "",
 };
 
 my $exitCode = 209;
@@ -60,7 +64,7 @@ sub execPlay($$$@);
 sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf();
-sub writeMplayerConf();
+sub writeMpvConf();
 sub writeInputCommands(@);
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
@@ -89,17 +93,17 @@ my $usage = "Usage:
      autoskip is suspended/resumed when 'auto' key command is run
 
   -fs | --fs | --fullscreen
-    fullscreen: pass '-fs' to mplayer (this is the default)
+    fullscreen: pass '--fs' to mpv (this is the default)
 
   -nofs | --nofs | --nofullscreen
-    no fullscreen: pass '-nofs' to mplayer
+    no fullscreen: pass '--no-fs' to mpv
 
   -g GEOMETRY | -geometry GEOMETRY | --geometry GEOMETRY | --geometry=GEOMETRY
-     set geometry to mplayer with '-geometry GEOMETRY'
+     set geometry to mpv with '--geometry=GEOMETRY'
      e.g: '-geometry 1920x1080'
 
   -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
-    set the mplayer window title with '-title TITLE'
+    set the mpv window title with '--title=TITLE'
     default is $defaultWindowTitle
 ";
 
@@ -153,13 +157,13 @@ sub main(@){
   my @dirs = @_;
   die $usage if @dirs == 0;
 
-  my @mplayerArgs;
-  push @mplayerArgs, ($fullscreen ? "-fs" : "-nofs");
-  @mplayerArgs = (@mplayerArgs, "-geometry", $geometry) if defined $geometry;
-  push @mplayerArgs, ("-title", $windowTitle);
+  my @mpvArgs;
+  push @mpvArgs, ($fullscreen ? "--fs" : "--no-fs");
+  @mpvArgs = (@mpvArgs, "--geometry=$geometry") if defined $geometry;
+  push @mpvArgs, ("--title=$windowTitle");
 
   writeInputConf;
-  writeMplayerConf;
+  writeMpvConf;
 
   my @cmd;
   push @cmd, "find";
@@ -222,14 +226,24 @@ sub main(@){
     my $pid = fork;
     my $start = time;
     if($pid == 0){
-      execPlay $file, $pos, $msg, @mplayerArgs;
+      execPlay $file, $pos, $msg, @mpvArgs;
     }else{
+      my $osdShown = 0;
       my $kid;
       do{
         $kid = waitpid $pid, WNOHANG;
         $status = $?;
         $status /= 256 if $status > 256;
+
         sleep 0.5;
+
+        if(not $osdShown and -e $inputCmdFile){
+          writeInputCommands(
+            "show-text \"$msg\"",
+          );
+          $osdShown = 1;
+        }
+
         if($autoSkip && time - $start > $autoSkipDelay){
           print "\nauto-skipped\n";
           if(not fork()){
@@ -257,24 +271,22 @@ sub main(@){
     }elsif($status == $exitCodes{autoskip}){
       $autoSkip = not $autoSkip;
     }elsif($status == $exitCodes{quitall}){
-      system "nohup pkill -9 mplayer >/dev/null 2>/dev/null &";
+      system "nohup pkill -9 mpv >/dev/null 2>/dev/null &";
     }elsif($status != 0){
-      die "\nunexpected mplayer exit code, terminating\n";
+      die "\nunexpected mpv exit code, terminating\n";
     }
   }
 }
 
 sub execPlay($$$@){
-  my ($file, $pos, $msg, @mplayerArgs) = @_;
-  writeInputCommands(
-    "osd_show_text \"$msg\" 1000",
-  );
-  my @cmd = ("mplayer",
-    @mplayerArgs,
-    "-input", "conf=$inputConfFile",
-    "-input", "file=$inputCmdFile",
-    "-include", $mplayerConfFile,
-    "-ss", $pos,
+  my ($file, $pos, $msg, @mpvArgs) = @_;
+  system "rm", $inputCmdFile;
+  my @cmd = ("mpv",
+    @mpvArgs,
+    "--input-conf=$inputConfFile",
+    "--input-ipc-server=$inputCmdFile",
+    "--include=$mpvConfFile",
+    "--start=$pos",
     $file,
   );
   print "@cmd\n";
@@ -312,23 +324,23 @@ sub writeInputConf(){
   close FH;
 }
 
-sub writeMplayerConf(){
+sub writeMpvConf(){
   my $conf = '';
-  for my $key(keys %$mplayerConf){
-    $conf .= "$key=$$mplayerConf{$key}\n";
+  for my $key(keys %$mpvConf){
+    $conf .= "$key=$$mpvConf{$key}\n";
   }
-  open FH, "> $mplayerConfFile" or die "Could not write to $mplayerConfFile\n";
+  open FH, "> $mpvConfFile" or die "Could not write to $mpvConfFile\n";
   print FH $conf;
   close FH;
 }
 sub writeInputCommands(@){
   my $cmds = '';
+  return if not -e $inputCmdFile;
+  open CMD, "|-", "socat", "-", $inputCmdFile;
   for my $cmd(@_){
-    $cmds .= "$cmd\n";
+    print CMD "$cmd\n";
   }
-  open FH, "> $inputCmdFile" or die "Could not write to $inputCmdFile\n";
-  print FH $cmds;
-  close FH;
+  close CMD;
 }
 
 sub getProcLines(@){
