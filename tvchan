@@ -11,20 +11,12 @@ use IO::Select;
 
 my @EXTS_VIDEO = qw(
   mkv mks mk3d
-  avi
-  webm
-  flv
-  ogv
-  drc
+  avi webm flv ogv drc
   mov qt
   wmv
   mp4 m4p m4v
   mpg mpeg mpe mpv m2v m2s m1s
-  svi
-  3gp 3g2
-  divx
-  vob
-  m2ts
+  svi 3gp 3g2 divx vob m2ts
 );
 my @EXTS_MUSIC = qw(mp3 flac ogg m4a wma wav);
 
