@@ -57,6 +57,7 @@ sub isPlaying($);
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
 sub canRead($$);
+sub cmdFound($);
 sub isRunning($);
 sub nowMillis();
 
@@ -224,8 +225,13 @@ sub startMPV($$$){
   push @mpvCmd, "--input-conf=$inputConfFile";
   push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
 
+  my $cmd = "@mpvCmd";
+  if(cmdFound("script")){
+    $cmd = "script -q -f -c '$cmd'";
+  }
+
   my ($mpvPid, $mpvCmdFH);
-  $mpvPid = open $mpvCmdFH, "-|", "script -q -f -c '@mpvCmd'";
+  $mpvPid = open $mpvCmdFH, "-|", "$cmd";
 
   ensureIPCServerFifo($ipcServerFifo);
   print "IPC server fifo: $ipcServerFifo\n";
@@ -444,6 +450,17 @@ sub canRead($$){
   my ($ioSelect, $timeout) = @_;
   my @ready = $ioSelect->can_read($timeout);
   return @ready == 1;
+}
+
+sub cmdFound($){
+  my ($cmd) = @_;
+  my $cmdPath = `which $cmd 2>&1`;
+  chomp $cmdPath;
+  if(-x $cmdPath){
+    return 1;
+  }else{
+    return 0;
+  }
 }
 
 sub isRunning($){
