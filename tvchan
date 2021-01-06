@@ -414,7 +414,7 @@ sub getRandomPos($){
     $dur = $1;
   }
   if(not defined $dur){
-    print STDERR "ERROR: failed to obtain duration if $file\n";
+    print STDERR "ERROR: failed to obtain duration of $file\n";
     return 0;
   }
 
