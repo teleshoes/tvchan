@@ -90,6 +90,12 @@ my $usage = "Usage:
   --no-show-progress
     do not run mpv command 'show-progress' after loading each file
 
+  --show-file
+    after loading each file, run mpv command 'show-text' with the filename (this is the default)
+
+  --no-show-file
+    do not run mpv command 'show-text' after loading each file
+
   --osd-bar
     set mpv-property osd-bar=true (this is the default)
 
@@ -125,6 +131,7 @@ sub main(@){
   my $begin = 0;
   my $unique = 0;
   my $showProgress = 1;
+  my $showFile = 1;
   my $osdBar = 1;
   my $fullscreen = 1;
   my $forceWindow = 1;
@@ -157,6 +164,10 @@ sub main(@){
       $showProgress = 1;
     }elsif($arg =~ /^(--no-show-progress)$/){
       $showProgress = 0;
+    }elsif($arg =~ /^(--show-file)$/){
+      $showFile = 1;
+    }elsif($arg =~ /^(--no-show-file)$/){
+      $showFile = 0;
     }elsif($arg =~ /^(--osd-bar)$/){
       $osdBar = 1;
     }elsif($arg =~ /^(--no-osd-bar)$/){
@@ -217,6 +228,7 @@ sub main(@){
     unique       => $unique,
     begin        => $begin,
     showProgress => $showProgress,
+    showFile     => $showFile,
   };
 
   my $mpvPropArr = [
@@ -416,7 +428,9 @@ sub loadFile($$$$){
   print "\n\nPLAYING: $file @ $pos\n\n";
   socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
 
-  socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
+  if($$playOptions{showFile}){
+    socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
+  }
   if($$playOptions{showProgress}){
     socatJson($ipcServerFifo, "show-progress");
   }
