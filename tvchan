@@ -239,7 +239,7 @@ sub startMPV($$$){
   return ($mpvPid, $mpvCmdFH);
 }
 
-sub runPlaylistCommand($$$$$$$){
+sub runPlaylistCommand($$$$$$){
   my ($cmd, $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
 
   if($cmd eq "back"){
@@ -315,7 +315,7 @@ sub filterFilesIMDB($$){
   return $filteredFiles;
 }
 
-sub loadFile($$$$$$){
+sub loadFile($$$$$){
   my ($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
   my $files = $$playlistState{files};
   my $history = $$playlistState{history};
