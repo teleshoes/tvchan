@@ -30,7 +30,7 @@ my @EXTS_MUSIC = qw(mp3 flac ogg m4a wma wav);
 
 my $MAX_OSD_MSG_LEN = 60;
 my $DEFAULT_WINDOW_TITLE = "tvchan-mpv";
-my $DEFAULT_AUTO_SKIP_DELAY = 30;
+my $DEFAULT_AUTO_SKIP_DELAY_MILLIS = 30000;
 
 my $MPV_PROPERTIES = {
   "force-window" => "true",
@@ -60,6 +60,7 @@ sub isPlaying($);
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
 sub canRead($);
+sub nowMillis();
 
 my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
@@ -79,8 +80,8 @@ my $usage = "Usage:
 
   -a [SECONDS] | --autoskip [SECONDS] | --autoskip=SECONDS
      start in autoskip mode, and optionally set the delay to SECONDS
-       {default is $DEFAULT_AUTO_SKIP_DELAY}
-     SECONDS (optional) is the number of seconds to wait before running forward
+       {default is " . sprintf("%.1f", $DEFAULT_AUTO_SKIP_DELAY_MILLIS/1000.0) . "}
+     SECONDS (optional) is the number of fractional seconds to wait before running forward
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
 
@@ -107,7 +108,7 @@ sub main(@){
   my $fullscreen = 1;
   my $geometry = undef;
   my $windowTitle = $DEFAULT_WINDOW_TITLE;
-  my $autoSkipDelay = $DEFAULT_AUTO_SKIP_DELAY;
+  my $autoSkipDelayMillis = $DEFAULT_AUTO_SKIP_DELAY_MILLIS;
   my $search;
   my $dirs = [];
   while(@_ > 0){
@@ -120,12 +121,13 @@ sub main(@){
       $music = 1;
     }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
       $search = shift;
-    }elsif($arg =~ /^--autoskip=(\d+)$/){
+    }elsif($arg =~ /^--autoskip=(\d+|\d*\.\d+)$/){
       $autoSkip = 1;
-      $autoSkipDelay = $1;
-    }elsif($arg =~ /^(-a|--autoskip)$/ and @_ > 0 and $_[0] =~ /^\d+$/){
+      $autoSkipDelayMillis = int($1 * 1000 + 0.5);
+    }elsif($arg =~ /^(-a|--autoskip)$/ and @_ > 0 and $_[0] =~ /^\d+|\d*\.\d+$/){
       $autoSkip = 1;
-      $autoSkipDelay = shift;
+      my $autoSkipDelaySeconds = shift;
+      $autoSkipDelayMillis = int($autoSkipDelaySeconds * 1000 + 0.5);
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
     }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
@@ -148,7 +150,7 @@ sub main(@){
   }
   die "$usage\nERROR: must give at least one DIR\n" if @$dirs == 0;
 
-  my $nowMillis = int(time*1000);
+  my $nowMillis = nowMillis();
   my $ipcServerFifo = "/tmp/mpv-tvchan-commands-$nowMillis";
   my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
 
@@ -193,7 +195,7 @@ sub main(@){
   my $index = 0;
   my $history = [];
 
-  my $start;
+  my $startMillis;
 
   system "rm", "-f", $ipcServerFifo;
 
@@ -224,7 +226,7 @@ sub main(@){
   }
 
   loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
-  $start = time;
+  $startMillis = nowMillis();
 
   while(1){
     my $line;
@@ -238,7 +240,7 @@ sub main(@){
     my $cmd = undef;
     $cmd = $1 if defined $line and $line =~ /tvchan-cmd:(\w+)/;
 
-    if(not defined $cmd and $autoSkip && time - $start > $autoSkipDelay){
+    if(not defined $cmd and $autoSkip && nowMillis() - $startMillis > $autoSkipDelayMillis){
       print "\nauto-skipped\n";
       $cmd = "forward";
     }
@@ -256,16 +258,16 @@ sub main(@){
       $index--;
       $index = 0 if $index < 0;
       loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
-      $start = time;
+      $startMillis = nowMillis();
     }elsif($cmd eq "forward"){
       $index++;
       $index = @$history if $index > @$history;
       loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
-      $start = time;
+      $startMillis = nowMillis();
     }elsif($cmd eq "end"){
       $index = @$history;
       loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
-      $start = time;
+      $startMillis = nowMillis();
     }elsif($cmd eq "quit"){
       socatJson($ipcServerFifo, "quit");
       exit 0;
@@ -400,6 +402,10 @@ sub canRead($){
   my ($ioSelect) = @_;
   my @ready = $ioSelect->can_read(0);
   return @ready == 1;
+}
+
+sub nowMillis(){
+  return int(time * 1000.0 + 0.5);
 }
 
 &main(@ARGV);
