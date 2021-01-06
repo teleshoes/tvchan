@@ -251,6 +251,7 @@ sub runPlaylistCommand($$$$$$$){
     loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
   }elsif($cmd eq "quit"){
     socatJson($ipcServerFifo, "quit");
+    system "kill", "-9", $mpvPid;
     exit 0;
   }elsif($cmd eq "autoskip"){
     $$playlistState{autoSkip} = not $$playlistState{autoSkip};
