@@ -93,7 +93,7 @@ my $usage = "Usage:
   -fs | --fs | --fullscreen
     fullscreen: set mpv-property fullscreen=true (this is the default)
 
-  -nofs | --nofs | -no-fs | --no-fs | --nofullscreen
+  -nofs | --nofs | -no-fs | --no-fs | --nofullscreen | --no-fullscreen
     no fullscreen: set mpv-property fullscreen=false (this is the default)
 
   --force-window
@@ -152,7 +152,7 @@ sub main(@){
       $osdBar = 0;
     }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
       $fullscreen = 1;
-    }elsif($arg =~ /^(-nofs|--nofs|-no-fs|--no-fs|--nofullscreen)$/){
+    }elsif($arg =~ /^(-nofs|--nofs|-no-fs|--no-fs|--nofullscreen|--no-fullscreen)$/){
       $fullscreen = 0;
     }elsif($arg =~ /^(--force-window)$/){
       $forceWindow = 1;
