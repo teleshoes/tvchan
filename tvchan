@@ -43,11 +43,11 @@ my %TVCHAN_COMMAND_KEYS = (
 );
 
 sub startMPV($$$$$);
-sub runPlaylistCommand($$$$$);
+sub runPlaylistCommand($$$$$$);
 sub ensureIPCServerFifo($);
 sub findFiles($$);
 sub filterFilesIMDB($$);
-sub loadFile($$$$);
+sub loadFile($$$$$);
 sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf($$);
@@ -175,19 +175,21 @@ sub main(@){
     dirs        => $dirs,
   };
 
-  my $mpvCmdFH = startMPV($inputConfFile, $ipcServerFifo, $windowTitle, $fullscreen, $geometry);
+  my ($mpvPid, $mpvCmdFH) = startMPV(
+    $inputConfFile, $ipcServerFifo, $windowTitle, $fullscreen, $geometry);
+
   my $ioSelect = IO::Select->new($mpvCmdFH);
 
   while(1){
     if(not isPlaying($ipcServerFifo)){
-      runPlaylistCommand("forward", $ipcServerFifo, $playlistState, $unique, $begin);
+      runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
     }
 
     if($$playlistState{autoSkip}){
       my $elapsedMillis = nowMillis() - $$playlistState{startMillis};
       if($elapsedMillis > $autoSkipDelayMillis){
         print "\nauto-skipped\n";
-        runPlaylistCommand("forward", $ipcServerFifo, $playlistState, $unique, $begin);
+        runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
       }
     }
 
@@ -197,7 +199,7 @@ sub main(@){
       print $line if defined $line;
       if(defined $line and $line =~ /tvchan-cmd:(\w+)/){
         my $cmd = $1;
-        runPlaylistCommand($cmd, $ipcServerFifo, $playlistState, $unique, $begin);
+        runPlaylistCommand($cmd, $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
       }
     }
   }
@@ -217,7 +219,8 @@ sub startMPV($$$$$){
   push @mpvCmd, ($fullscreen ? "--fs" : "--no-fs");
   push @mpvCmd, "--geometry=$geometry" if defined $geometry;
 
-  open my $mpvCmdFH, "-|", @mpvCmd;
+  my ($mpvPid, $mpvCmdFH);
+  $mpvPid = open $mpvCmdFH, "-|", @mpvCmd;
 
   ensureIPCServerFifo($ipcServerFifo);
   print "IPC server fifo: $ipcServerFifo\n";
@@ -227,25 +230,25 @@ sub startMPV($$$$$){
     setProperty($ipcServerFifo, $propertyName, $val);
   }
 
-  return $mpvCmdFH;
+  return ($mpvPid, $mpvCmdFH);
 }
 
-sub runPlaylistCommand($$$$$){
-  my ($cmd, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
+sub runPlaylistCommand($$$$$$$){
+  my ($cmd, $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
 
   if($cmd eq "back"){
     $$playlistState{index}--;
     $$playlistState{index} = 0 if $$playlistState{index} < 0;
-    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
   }elsif($cmd eq "forward"){
     my $historySize = @{$$playlistState{history}};
     $$playlistState{index}++;
     $$playlistState{index} = $historySize if $$playlistState{index} > $historySize;
-    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
   }elsif($cmd eq "end"){
     my $historySize = @{$$playlistState{history}};
     $$playlistState{index} = $historySize;
-    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
   }elsif($cmd eq "quit"){
     socatJson($ipcServerFifo, "quit");
     exit 0;
@@ -305,8 +308,8 @@ sub filterFilesIMDB($$){
   return $filteredFiles;
 }
 
-sub loadFile($$$$){
-  my ($ipcServerFifo, $playlistState, $unique, $begin) = @_;
+sub loadFile($$$$$$){
+  my ($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
   my $files = $$playlistState{files};
   my $history = $$playlistState{history};
   my $index = $$playlistState{index};
