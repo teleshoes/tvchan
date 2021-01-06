@@ -264,12 +264,18 @@ sub runPlaylistCommand($$$$$$){
   }elsif($cmd eq "quit"){
     socatJson($ipcServerFifo, "quit");
     system "kill", "-9", $mpvPid;
+    system "stty", "sane";
     exit 0;
   }elsif($cmd eq "autoskip"){
     $$playlistState{autoSkip} = not $$playlistState{autoSkip};
   }elsif($cmd eq "quitall"){
+    socatJson($ipcServerFifo, "quit");
+    system "kill", "-9", $mpvPid;
+    system "stty", "sane";
+
     system "pkill -9 mpv >/dev/null 2>/dev/null";
     system "nohup pkill -9 tvchan >/dev/null 2>/dev/null &";
+
     exit 1;
   }else{
     die "ERROR: unknown command \"$cmd\"\n";
