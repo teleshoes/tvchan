@@ -342,7 +342,7 @@ sub filterFilesIMDB($$){
 
   my $filteredFiles = [];
   for my $file(@$files){
-    my $imdb = join '', @{getProcLinesNoFail("imdb", "-c", $file)};
+    my $imdb = join '', @{getProcLines("imdb", "-c", $file)};
     if($imdb =~ /$imdbQuery/i){
       push @$filteredFiles, $file;
     }
@@ -464,11 +464,6 @@ sub isPlaying($){
 }
 
 sub getProcLines(@){
-  my $lines = getProcLinesNoFail @_;
-  die "Error running \"@_\"\n" if $? != 0;
-  return $lines;
-}
-sub getProcLinesNoFail(@){
   open FH, "-|", @_;
   my @lines = <FH>;
   close FH;
