@@ -191,27 +191,22 @@ sub main(@){
       runPlaylistCommand("forward", $ipcServerFifo, $playlistState, $unique, $begin);
     }
 
-    my $line;
-    if(canRead($ioSelect, 0.5)){
-      $line = <$mpvCmdFH>;
-      if(defined $line){
-        print $line;
-      }
-    }
-
-    my $cmd = undef;
-    $cmd = $1 if defined $line and $line =~ /tvchan-cmd:(\w+)/;
-
-    if(not defined $cmd and $$playlistState{autoSkip}){
+    if($$playlistState{autoSkip}){
       my $elapsedMillis = nowMillis() - $$playlistState{startMillis};
       if($elapsedMillis > $autoSkipDelayMillis){
         print "\nauto-skipped\n";
-        $cmd = "forward";
+        runPlaylistCommand("forward", $ipcServerFifo, $playlistState, $unique, $begin);
       }
     }
 
-    if(defined $cmd){
-      runPlaylistCommand($cmd, $ipcServerFifo, $playlistState, $unique, $begin);
+    my $line;
+    if(canRead($ioSelect, 0.5)){
+      $line = <$mpvCmdFH>;
+      print $line if defined $line;
+      if(defined $line and $line =~ /tvchan-cmd:(\w+)/){
+        my $cmd = $1;
+        runPlaylistCommand($cmd, $ipcServerFifo, $playlistState, $unique, $begin);
+      }
     }
   }
   close $mpvCmdFH;
