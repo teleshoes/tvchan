@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use POSIX ":sys_wait_h";
 use Time::HiRes qw(sleep time);
+use IO::Select;
 
 # tvchan
 # Copyright 2014,2015,2021 Elliot Wolk
@@ -43,31 +44,32 @@ my $mpvConf = {
   "osd-msg1" => "",
 };
 
-my $exitCode = 209;
-my %commands = (
-  back     => [$exitCode++, [qw( F9  1       )]],
-  forward  => [$exitCode++, [qw( F10 2 ENTER )]],
-  end      => [$exitCode++, [qw( F11 3       )]],
-  quit     => [$exitCode++, [qw( F12 4 q     )]],
-  autoskip => [$exitCode++, [qw( F5  5       )]],
-  quitall  => [$exitCode++, [qw( DEL         )]],
+my %tvchanKeyboardCommands = (
+  back     => [qw( F9  1       )],
+  forward  => [qw( F10 2 ENTER )],
+  end      => [qw( F11 3       )],
+  quit     => [qw( F12 4 q     )],
+  autoskip => [qw( F5  5       )],
+  quitall  => [qw( DEL         )],
 );
-my %exitCodes = map {$_ => ${$commands{$_}}[0]} keys %commands;
 
 my $inputConf = {};
-for my $cmd(values %commands){
-  my ($exitCode, $keys) = @$cmd;
-  $$inputConf{$_} = "quit $exitCode" foreach @$keys;
+for my $tvchanCmd(sort keys %tvchanKeyboardCommands){
+  my @keynames = @{$tvchanKeyboardCommands{$tvchanCmd}};
+  $$inputConf{$_} = "print-text tvchan-cmd:$tvchanCmd" foreach @keynames;
 }
 
-sub execPlay($$$@);
+sub loadFile($$$$$$);
 sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf();
 sub writeMpvConf();
 sub writeInputCommands(@);
+sub socatJson($);
+sub isPlaying();
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
+sub canRead($);
 
 my $usage = "Usage:
   $0 [OPTS] DIR [DIR ..]
@@ -117,7 +119,7 @@ sub main(@){
   my $windowTitle = $defaultWindowTitle;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
-  my @dirs;
+  my $dirs = [];
   while(@_ > 0){
     my $arg = shift;
     if($arg =~ /^(-b|--beginning|--start)$/){
@@ -149,12 +151,12 @@ sub main(@){
     }elsif($arg =~ /^(-t|-title|--title)$/ and @_ > 0){
       $windowTitle = shift;
     }elsif(-d $arg){
-      push @dirs, $arg;
+      push @$dirs, $arg;
     }else{
       die "$usage\nERROR: unknown arg $arg\n";;
     }
   }
-  die "$usage\nERROR: must give at least one DIR\n" if @dirs == 0;
+  die "$usage\nERROR: must give at least one DIR\n" if @$dirs == 0;
 
   my @ext = $music ? (@videoExt, @musicExt) : (@videoExt);
 
@@ -169,7 +171,7 @@ sub main(@){
   my @cmd;
   push @cmd, "find";
   push @cmd, "-L";
-  for my $dir(@dirs){
+  for my $dir(@$dirs){
     die "\"$dir\" is not a directory\n" if not -d $dir;
     push @cmd, $dir;
   }
@@ -194,104 +196,123 @@ sub main(@){
     print "SELECTED:\n" . join "\n", @$files;
   }
 
-  my @history;
   my $index = 0;
-  while(1){
-    my ($file, $pos);
-    if($index < @history){
-      ($file, $pos) = @{$history[$index]};
-    }else{
-      die "no files found\n" if @$files == 0;
-      my $deleteEntry = $unique;
-      $file = getRandomEntry $files, $deleteEntry;
+  my $history = [];
 
-      if($begin){
-        $pos = 0;
-      }else{
-        $pos = getRandomPos $file;
-      }
-      push @history, [$file, $pos];
-    }
+  my $start;
 
-    my $msg = $file;
-    for my $dir(@dirs){
-      $msg =~ s/^$dir//;
-    }
-    my $len = length $msg;
-    if($len > $msgLen){
-      $msg = substr $msg, $len - $msgLen;
-    }
-
-    print "\n\nPLAYING: $file @ $pos\n\n";
-    my $status;
-    my $pid = fork;
-    my $start = time;
-    if($pid == 0){
-      execPlay $file, $pos, $msg, @mpvArgs;
-    }else{
-      my $osdShown = 0;
-      my $kid;
-      do{
-        $kid = waitpid $pid, WNOHANG;
-        $status = $?;
-        $status /= 256 if $status > 256;
-
-        sleep 0.5;
-
-        if(not $osdShown and -e $inputCmdFile){
-          writeInputCommands(
-            "show-text \"$msg\"",
-          );
-          $osdShown = 1;
-        }
-
-        if($autoSkip && time - $start > $autoSkipDelay){
-          print "\nauto-skipped\n";
-          if(not fork()){
-            sleep 1;
-            system "kill $pid";
-            waitpid $pid, 0;
-            exit 0;
-          }
-          $kid = 1;
-          $status = $exitCodes{forward};
-        }
-      } while $kid == 0;
-    }
-
-    if($status == $exitCodes{back}){
-      $index--;
-      $index = 0 if $index < 0;
-    }elsif($status == $exitCodes{forward} or $status == 0){
-      $index++;
-      $index = @history if $index > @history;
-    }elsif($status == $exitCodes{end}){
-      $index = @history;
-    }elsif($status == $exitCodes{quit}){
-      last;
-    }elsif($status == $exitCodes{autoskip}){
-      $autoSkip = not $autoSkip;
-    }elsif($status == $exitCodes{quitall}){
-      system "nohup pkill -9 mpv >/dev/null 2>/dev/null &";
-    }elsif($status != 0){
-      die "\nunexpected mpv exit code, terminating\n";
-    }
-  }
-}
-
-sub execPlay($$$@){
-  my ($file, $pos, $msg, @mpvArgs) = @_;
-  system "rm", $inputCmdFile;
-  my @cmd = ("mpv",
+  system "rm", "-f", $inputCmdFile;
+  my @mpvCmd = ("mpv",
     @mpvArgs,
+    "--idle",
+    "--quiet",
     "--input-conf=$inputConfFile",
     "--input-ipc-server=$inputCmdFile",
     "--include=$mpvConfFile",
-    "--start=$pos",
-    $file,
   );
-  print "@cmd\n";
-  exec @cmd;
+
+  open my $mpvCmdFH, "-|", @mpvCmd;
+  my $ioSelect = IO::Select->new($mpvCmdFH);
+
+  sleep 0.5;
+  if(not -e $inputCmdFile){
+    die "ERROR: ipc server fifo does not exist \"$inputCmdFile\"\n";
+  }else{
+    print "IPC server fifo: $inputCmdFile\n";
+  }
+
+  loadFile($files, $history, $dirs, $index, $unique, $begin);
+  $start = time;
+
+  while(1){
+    my $line;
+    if(canRead($ioSelect)){
+      $line = <$mpvCmdFH>;
+      if(defined $line){
+        print $line;
+      }
+    }
+
+    my $cmd = undef;
+    $cmd = $1 if defined $line and $line =~ /tvchan-cmd:(\w+)/;
+
+    if(not defined $cmd and $autoSkip && time - $start > $autoSkipDelay){
+      print "\nauto-skipped\n";
+      $cmd = "forward";
+    }
+
+    if(not defined $cmd and not isPlaying()){
+      $cmd = "forward";
+    }
+
+    if(not defined $line){
+      sleep 0.3;
+    }
+
+    $cmd = "" if not defined $cmd;
+    if($cmd eq "back"){
+      $index--;
+      $index = 0 if $index < 0;
+      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      $start = time;
+    }elsif($cmd eq "forward"){
+      $index++;
+      $index = @$history if $index > @$history;
+      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      $start = time;
+    }elsif($cmd eq "end"){
+      $index = @$history;
+      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      $start = time;
+    }elsif($cmd eq "quit"){
+      writeInputCommands("quit");
+      exit 0;
+    }elsif($cmd eq "autoskip"){
+      $autoSkip = not $autoSkip;
+    }elsif($cmd eq "quitall"){
+      system "pkill -9 mpv >/dev/null 2>/dev/null";
+      system "nohup pkill -9 tvchan >/dev/null 2>/dev/null &";
+      exit 1;
+    }
+
+  }
+  close $mpvCmdFH;
+}
+
+sub loadFile($$$$$$){
+  my ($files, $history, $dirs, $index, $unique, $begin) = @_;
+
+  my ($file, $pos);
+  if($index < @$history){
+    ($file, $pos) = @{$$history[$index]};
+  }else{
+    die "no files found\n" if @$files == 0;
+    my $deleteEntry = $unique;
+    $file = getRandomEntry $files, $deleteEntry;
+
+    if($begin){
+      $pos = 0;
+    }else{
+      $pos = getRandomPos $file;
+    }
+    push @$history, [$file, $pos];
+  }
+
+  my $msg = $file;
+  for my $dir(@$dirs){
+    $msg =~ s/^$dir//;
+  }
+  my $len = length $msg;
+  if($len > $msgLen){
+    $msg = substr $msg, $len - $msgLen;
+  }
+
+  print "\n\nPLAYING: $file @ $pos\n\n";
+  writeInputCommands(
+    "loadfile \"$file\" replace \"start=$pos\"",
+    "show-text \"$msg\" 1500",
+    "show-progress",
+  );
 }
 
 sub getRandomEntry($$){
@@ -306,11 +327,15 @@ sub getRandomPos($){
   my $file = shift;
   die "Could not find \"$file\"\n" if not -f $file;
   my $durLines = getProcLines "duration", "-n", "-s", $file;
-  die "Error running duration on $file\n" if @$durLines != 1;
-  my $dur = $$durLines[0];
-  chomp $dur;
+  my $dur;
+  if(@$durLines == 1 and $$durLines[0] =~ /^(\d+|\d*\.\d+)$/){
+    $dur = $1;
+  }
+  if(not defined $dur){
+    print STDERR "ERROR: failed to obtain duration if $file\n";
+    return 0;
+  }
 
-  die "Malformed duration: $dur\n" if $dur !~ /^\d+(\.\d+)?$/;
   my $pos = rand() * $dur;
   return sprintf '%.2f', $pos;
 }
@@ -334,14 +359,34 @@ sub writeMpvConf(){
   print FH $conf;
   close FH;
 }
+
 sub writeInputCommands(@){
-  my $cmds = '';
-  return if not -e $inputCmdFile;
-  open CMD, "|-", "socat", "-", $inputCmdFile;
   for my $cmd(@_){
-    print CMD "$cmd\n";
+    socatJson $cmd;
   }
-  close CMD;
+}
+sub socatJson($){
+  my ($json) = @_;
+  return if not -e $inputCmdFile;
+  $json =~ s/'/'\\''/g;
+  my $out = `echo '$json' | socat - $inputCmdFile 2>/dev/null`;
+  chomp $out;
+  return $out;
+}
+
+sub isPlaying(){
+  return 0 if not -e $inputCmdFile;
+  my $json = '{ "command": ["get_property", "filename"] }';
+  my $out = socatJson $json;
+
+  if($out =~ /"error":"success"/){
+    return 1;
+  }elsif($out =~ /"error":"property unavailable"/){
+    return 0;
+  }
+  print "$out\n";
+
+  return 0;
 }
 
 sub getProcLines(@){
@@ -354,6 +399,12 @@ sub getProcLinesNoFail(@){
   my @lines = <FH>;
   close FH;
   return \@lines;
+}
+
+sub canRead($){
+  my ($ioSelect) = @_;
+  my @ready = $ioSelect->can_read(0);
+  return @ready == 1;
 }
 
 &main(@ARGV);
