@@ -9,7 +9,7 @@ use IO::Select;
 # Copyright 2014,2015,2021 Elliot Wolk
 # Licensed under the GNU General Public License v3 or later
 
-my @videoExt = qw(
+my @EXTS_VIDEO = qw(
   mkv mks mk3d
   avi
   webm
@@ -26,17 +26,13 @@ my @videoExt = qw(
   vob
   m2ts
 );
-my @musicExt = qw(mp3 flac ogg m4a wma wav);
+my @EXTS_MUSIC = qw(mp3 flac ogg m4a wma wav);
 
-my $msgLen = 60;
-my $nowMillis = int(time*1000);
-my $mpvConfFile = "/tmp/mpv-tvchan-$nowMillis.conf";
-my $inputCmdFile = "/tmp/mpv-tvchan-commands-$nowMillis";
-my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
-my $defaultWindowTitle = "tvchan-mpv";
-my $defaultAutoSkipDelay = 30;
+my $MAX_OSD_MSG_LEN = 60;
+my $DEFAULT_WINDOW_TITLE = "tvchan-mpv";
+my $DEFAULT_AUTO_SKIP_DELAY = 30;
 
-my $mpvConf = {
+my $MPV_CONF = {
   "osd-scale" => 1.5,
   "osd-scale-by-window" => "no",
   "osd-bar" => "yes",
@@ -44,7 +40,7 @@ my $mpvConf = {
   "osd-msg1" => "",
 };
 
-my %tvchanKeyboardCommands = (
+my %TVCHAN_COMMAND_KEYS = (
   back     => [qw( F9  1       )],
   forward  => [qw( F10 2 ENTER )],
   end      => [qw( F11 3       )],
@@ -54,10 +50,15 @@ my %tvchanKeyboardCommands = (
 );
 
 my $inputConf = {};
-for my $tvchanCmd(sort keys %tvchanKeyboardCommands){
-  my @keynames = @{$tvchanKeyboardCommands{$tvchanCmd}};
+for my $tvchanCmd(sort keys %TVCHAN_COMMAND_KEYS){
+  my @keynames = @{$TVCHAN_COMMAND_KEYS{$tvchanCmd}};
   $$inputConf{$_} = "print-text tvchan-cmd:$tvchanCmd" foreach @keynames;
 }
+
+my $nowMillis = int(time*1000);
+my $mpvConfFile = "/tmp/mpv-tvchan-$nowMillis.conf";
+my $inputCmdFile = "/tmp/mpv-tvchan-commands-$nowMillis";
+my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
 
 sub loadFile($$$$$$);
 sub getRandomEntry($$);
@@ -83,14 +84,14 @@ my $usage = "Usage:
     show each file at most only once
 
   -m | --music
-    include (@musicExt) instead of just (@videoExt)
+    include (@EXTS_MUSIC) instead of just (@EXTS_VIDEO)
 
   -s STRING | --search STRING | --imdb STRING
     use 'imdb' crawling+caching script to filter files
 
   -a [SECONDS] | --autoskip [SECONDS] | --autoskip=SECONDS
      start in autoskip mode, and optionally set the delay to SECONDS
-       {default is $defaultAutoSkipDelay}
+       {default is $DEFAULT_AUTO_SKIP_DELAY}
      SECONDS (optional) is the number of seconds to wait before running forward
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
@@ -107,7 +108,7 @@ my $usage = "Usage:
 
   -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
     set the mpv window title with '--title=TITLE'
-    default is $defaultWindowTitle
+    default is $DEFAULT_WINDOW_TITLE
 ";
 
 sub main(@){
@@ -117,8 +118,8 @@ sub main(@){
   my $unique = 0;
   my $fullscreen = 1;
   my $geometry = undef;
-  my $windowTitle = $defaultWindowTitle;
-  my $autoSkipDelay = $defaultAutoSkipDelay;
+  my $windowTitle = $DEFAULT_WINDOW_TITLE;
+  my $autoSkipDelay = $DEFAULT_AUTO_SKIP_DELAY;
   my $search;
   my $dirs = [];
   while(@_ > 0){
@@ -159,7 +160,7 @@ sub main(@){
   }
   die "$usage\nERROR: must give at least one DIR\n" if @$dirs == 0;
 
-  my @ext = $music ? (@videoExt, @musicExt) : (@videoExt);
+  my @exts = $music ? (@EXTS_VIDEO, @EXTS_MUSIC) : (@EXTS_VIDEO);
 
   my @mpvArgs;
   push @mpvArgs, ($fullscreen ? "--fs" : "--no-fs");
@@ -178,7 +179,7 @@ sub main(@){
   }
   @cmd = (@cmd, "-type", "f");
   push @cmd, "-false";
-  for my $ext(@ext){
+  for my $ext(@exts){
     push @cmd, ("-or", "-iname", "*.$ext");
   }
 
@@ -306,8 +307,8 @@ sub loadFile($$$$$$){
     $msg =~ s/^$dir//;
   }
   my $len = length $msg;
-  if($len > $msgLen){
-    $msg = substr $msg, $len - $msgLen;
+  if($len > $MAX_OSD_MSG_LEN){
+    $msg = substr $msg, $len - $MAX_OSD_MSG_LEN;
   }
 
   print "\n\nPLAYING: $file @ $pos\n\n";
@@ -355,8 +356,8 @@ sub writeInputConf(){
 
 sub writeMpvConf(){
   my $conf = '';
-  for my $key(keys %$mpvConf){
-    $conf .= "$key=$$mpvConf{$key}\n";
+  for my $key(keys %$MPV_CONF){
+    $conf .= "$key=$$MPV_CONF{$key}\n";
   }
   open FH, "> $mpvConfFile" or die "Could not write to $mpvConfFile\n";
   print FH $conf;
