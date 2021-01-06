@@ -117,7 +117,8 @@ sub main(@){
   my $windowTitle = $defaultWindowTitle;
   my $autoSkipDelay = $defaultAutoSkipDelay;
   my $search;
-  while(@_ > 0 and $_[0] =~ /^-/){
+  my @dirs;
+  while(@_ > 0){
     my $arg = shift;
     if($arg =~ /^(-b|--beginning|--start)$/){
       $begin = 1;
@@ -147,15 +148,15 @@ sub main(@){
       $windowTitle = $1;
     }elsif($arg =~ /^(-t|-title|--title)$/ and @_ > 0){
       $windowTitle = shift;
+    }elsif(-d $arg){
+      push @dirs, $arg;
     }else{
-      die $usage;
+      die "$usage\nERROR: unknown arg $arg\n";;
     }
   }
+  die "$usage\nERROR: must give at least one DIR\n" if @dirs == 0;
 
   my @ext = $music ? (@videoExt, @musicExt) : (@videoExt);
-
-  my @dirs = @_;
-  die $usage if @dirs == 0;
 
   my @mpvArgs;
   push @mpvArgs, ($fullscreen ? "--fs" : "--no-fs");
