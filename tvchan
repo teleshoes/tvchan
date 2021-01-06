@@ -177,6 +177,7 @@ sub main(@){
     files       => $files,
     history     => [],
     index       => 0,
+    autoSkip    => $autoSkip,
     startMillis => undef,
     dirs        => $dirs,
   };
@@ -198,7 +199,7 @@ sub main(@){
     my $cmd = undef;
     $cmd = $1 if defined $line and $line =~ /tvchan-cmd:(\w+)/;
 
-    if(not defined $cmd and $autoSkip){
+    if(not defined $cmd and $$playlistState{autoSkip}){
       my $elapsedMillis = nowMillis() - $$playlistState{startMillis};
       if($elapsedMillis > $autoSkipDelayMillis){
         print "\nauto-skipped\n";
@@ -228,7 +229,7 @@ sub main(@){
       socatJson($ipcServerFifo, "quit");
       exit 0;
     }elsif($cmd eq "autoskip"){
-      $autoSkip = not $autoSkip;
+      $$playlistState{autoSkip} = not $$playlistState{autoSkip};
     }elsif($cmd eq "quitall"){
       system "pkill -9 mpv >/dev/null 2>/dev/null";
       system "nohup pkill -9 tvchan >/dev/null 2>/dev/null &";
