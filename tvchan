@@ -255,7 +255,7 @@ sub startMPV($$$){
 
   my $cmd = "@mpvCmd";
   if(cmdFound("script")){
-    $cmd = "script -q -f -c '$cmd'";
+    $cmd = "script -q -f -c '$cmd' /dev/null";
   }
 
   my ($mpvPid, $mpvCmdFH);
