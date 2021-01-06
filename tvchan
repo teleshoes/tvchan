@@ -51,6 +51,7 @@ my %TVCHAN_COMMAND_KEYS = (
 );
 
 sub startMPV($$$$$);
+sub runPlaylistCommand($$$$$);
 sub ensureIPCServerFifo($);
 sub findFiles($$);
 sub filterFilesIMDB($$);
@@ -211,31 +212,9 @@ sub main(@){
       $cmd = "forward";
     }
 
-    $cmd = "" if not defined $cmd;
-    if($cmd eq "back"){
-      $$playlistState{index}--;
-      $$playlistState{index} = 0 if $$playlistState{index} < 0;
-      loadFile($ipcServerFifo, $playlistState, $unique, $begin);
-    }elsif($cmd eq "forward"){
-      my $historySize = @{$$playlistState{history}};
-      $$playlistState{index}++;
-      $$playlistState{index} = $historySize if $$playlistState{index} > $historySize;
-      loadFile($ipcServerFifo, $playlistState, $unique, $begin);
-    }elsif($cmd eq "end"){
-      my $historySize = @{$$playlistState{history}};
-      $$playlistState{index} = $historySize;
-      loadFile($ipcServerFifo, $playlistState, $unique, $begin);
-    }elsif($cmd eq "quit"){
-      socatJson($ipcServerFifo, "quit");
-      exit 0;
-    }elsif($cmd eq "autoskip"){
-      $$playlistState{autoSkip} = not $$playlistState{autoSkip};
-    }elsif($cmd eq "quitall"){
-      system "pkill -9 mpv >/dev/null 2>/dev/null";
-      system "nohup pkill -9 tvchan >/dev/null 2>/dev/null &";
-      exit 1;
+    if(defined $cmd){
+      runPlaylistCommand($cmd, $ipcServerFifo, $playlistState, $unique, $begin);
     }
-
   }
   close $mpvCmdFH;
 }
@@ -264,6 +243,36 @@ sub startMPV($$$$$){
   }
 
   return $mpvCmdFH;
+}
+
+sub runPlaylistCommand($$$$$){
+  my ($cmd, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
+
+  if($cmd eq "back"){
+    $$playlistState{index}--;
+    $$playlistState{index} = 0 if $$playlistState{index} < 0;
+    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+  }elsif($cmd eq "forward"){
+    my $historySize = @{$$playlistState{history}};
+    $$playlistState{index}++;
+    $$playlistState{index} = $historySize if $$playlistState{index} > $historySize;
+    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+  }elsif($cmd eq "end"){
+    my $historySize = @{$$playlistState{history}};
+    $$playlistState{index} = $historySize;
+    loadFile($ipcServerFifo, $playlistState, $unique, $begin);
+  }elsif($cmd eq "quit"){
+    socatJson($ipcServerFifo, "quit");
+    exit 0;
+  }elsif($cmd eq "autoskip"){
+    $$playlistState{autoSkip} = not $$playlistState{autoSkip};
+  }elsif($cmd eq "quitall"){
+    system "pkill -9 mpv >/dev/null 2>/dev/null";
+    system "nohup pkill -9 tvchan >/dev/null 2>/dev/null &";
+    exit 1;
+  }else{
+    die "ERROR: unknown command \"$cmd\"\n";
+  }
 }
 
 sub ensureIPCServerFifo($){
