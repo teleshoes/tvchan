@@ -32,12 +32,13 @@ my $MAX_OSD_MSG_LEN = 60;
 my $DEFAULT_WINDOW_TITLE = "tvchan-mpv";
 my $DEFAULT_AUTO_SKIP_DELAY = 30;
 
-my $MPV_CONF = {
-  "osd-scale" => 1.5,
-  "osd-scale-by-window" => "no",
-  "osd-bar" => "yes",
-  "osd-level" => 1,
-  "osd-msg1" => "",
+my $MPV_PROPERTIES = {
+  "force-window" => "true",
+  "osd-scale" => "1.5",
+  "osd-scale-by-window" => "false",
+  "osd-bar" => "true",
+  "osd-level" => "1",
+  "osd-msg1" => "\"\"",
 };
 
 my %TVCHAN_COMMAND_KEYS = (
@@ -56,7 +57,6 @@ for my $tvchanCmd(sort keys %TVCHAN_COMMAND_KEYS){
 }
 
 my $nowMillis = int(time*1000);
-my $mpvConfFile = "/tmp/mpv-tvchan-$nowMillis.conf";
 my $inputCmdFile = "/tmp/mpv-tvchan-commands-$nowMillis";
 my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
 
@@ -64,7 +64,6 @@ sub loadFile($$$$$$);
 sub getRandomEntry($$);
 sub getRandomPos($);
 sub writeInputConf();
-sub writeMpvConf();
 sub writeInputCommands(@);
 sub socatJson($);
 sub setProperty($$);
@@ -168,7 +167,6 @@ sub main(@){
   push @mpvArgs, ("--title=$windowTitle");
 
   writeInputConf;
-  writeMpvConf;
 
   my @cmd;
   push @cmd, "find";
@@ -210,7 +208,6 @@ sub main(@){
     "--quiet",
     "--input-conf=$inputConfFile",
     "--input-ipc-server=$inputCmdFile",
-    "--include=$mpvConfFile",
   );
 
   open my $mpvCmdFH, "-|", @mpvCmd;
@@ -223,7 +220,12 @@ sub main(@){
     print "IPC server fifo: $inputCmdFile\n";
   }
 
-  setProperty("force-window", "true");
+  for my $propertyName(sort keys %$MPV_PROPERTIES){
+    my $val = $$MPV_PROPERTIES{$propertyName};
+    print "$propertyName\n";
+    setProperty($propertyName, $val);
+    print "\n";
+  }
 
   loadFile($files, $history, $dirs, $index, $unique, $begin);
   $start = time;
@@ -350,16 +352,6 @@ sub writeInputConf(){
     $conf .= "$key $$inputConf{$key}\n";
   }
   open FH, "> $inputConfFile" or die "Could not write to $inputConfFile\n";
-  print FH $conf;
-  close FH;
-}
-
-sub writeMpvConf(){
-  my $conf = '';
-  for my $key(keys %$MPV_CONF){
-    $conf .= "$key=$$MPV_CONF{$key}\n";
-  }
-  open FH, "> $mpvConfFile" or die "Could not write to $mpvConfFile\n";
   print FH $conf;
   close FH;
 }
