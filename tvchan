@@ -230,7 +230,7 @@ sub main(@){
 
   while(1){
     my $line;
-    if(canRead($ioSelect, 0.3)){
+    if(canRead($ioSelect, 0.5)){
       $line = <$mpvCmdFH>;
       if(defined $line){
         print $line;
