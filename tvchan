@@ -186,9 +186,11 @@ sub main(@){
   my $mpvCmdFH = startMPV($inputConfFile, $ipcServerFifo, $windowTitle, $fullscreen, $geometry);
   my $ioSelect = IO::Select->new($mpvCmdFH);
 
-  loadFile($ipcServerFifo, $playlistState, $unique, $begin);
-
   while(1){
+    if(not isPlaying($ipcServerFifo)){
+      runPlaylistCommand("forward", $ipcServerFifo, $playlistState, $unique, $begin);
+    }
+
     my $line;
     if(canRead($ioSelect, 0.5)){
       $line = <$mpvCmdFH>;
@@ -206,10 +208,6 @@ sub main(@){
         print "\nauto-skipped\n";
         $cmd = "forward";
       }
-    }
-
-    if(not defined $cmd and not isPlaying($ipcServerFifo)){
-      $cmd = "forward";
     }
 
     if(defined $cmd){
