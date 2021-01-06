@@ -27,7 +27,6 @@ my $DEFAULT_AUTO_SKIP_DELAY_MILLIS = 30000;
 my $MPV_PROPERTIES_ARR = [
   "osd-scale" => "1.5",
   "osd-scale-by-window" => "false",
-  "osd-bar" => "true",
   "osd-level" => "1",
   "osd-msg1" => "\"\"",
 ];
@@ -83,6 +82,12 @@ my $usage = "Usage:
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
 
+  --osd-bar
+    set mpv-property osd-bar=true (this is the default)
+
+  --no-osd-bar
+    set mpv-property osd-bar=false
+
   -fs | --fs | --fullscreen
     fullscreen: set mpv-property fullscreen=true (this is the default)
 
@@ -111,6 +116,7 @@ sub main(@){
   my $music = 0;
   my $begin = 0;
   my $unique = 0;
+  my $osdBar = 1;
   my $fullscreen = 1;
   my $forceWindow = 1;
   my $geometry = undef;
@@ -137,6 +143,10 @@ sub main(@){
       $autoSkipDelayMillis = int($autoSkipDelaySeconds * 1000 + 0.5);
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
+    }elsif($arg =~ /^(--osd-bar)$/){
+      $osdBar = 1;
+    }elsif($arg =~ /^(--no-osd-bar)$/){
+      $osdBar = 0;
     }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
       $fullscreen = 1;
     }elsif($arg =~ /^(-nofs|--nofs|-no-fs|--no-fs|--nofullscreen)$/){
@@ -190,6 +200,7 @@ sub main(@){
   };
 
   my $mpvPropArr = [
+     "osd-bar"      => ($osdBar ? "true" : "false"),
      "title"        => "\"$windowTitle\"",
      "fullscreen"   => ($fullscreen ? "true" : "false"),
      "force-window" => ($forceWindow ? "true" : "false"),
