@@ -59,7 +59,7 @@ sub setProperty($$$);
 sub isPlaying($);
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
-sub canRead($);
+sub canRead($$);
 sub nowMillis();
 
 my $usage = "Usage:
@@ -230,7 +230,7 @@ sub main(@){
 
   while(1){
     my $line;
-    if(canRead($ioSelect)){
+    if(canRead($ioSelect, 0.3)){
       $line = <$mpvCmdFH>;
       if(defined $line){
         print $line;
@@ -247,10 +247,6 @@ sub main(@){
 
     if(not defined $cmd and not isPlaying($ipcServerFifo)){
       $cmd = "forward";
-    }
-
-    if(not defined $line){
-      sleep 0.3;
     }
 
     $cmd = "" if not defined $cmd;
@@ -398,9 +394,9 @@ sub getProcLinesNoFail(@){
   return \@lines;
 }
 
-sub canRead($){
-  my ($ioSelect) = @_;
-  my @ready = $ioSelect->can_read(0);
+sub canRead($$){
+  my ($ioSelect, $timeout) = @_;
+  my @ready = $ioSelect->can_read($timeout);
   return @ready == 1;
 }
 
