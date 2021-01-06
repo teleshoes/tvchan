@@ -50,6 +50,7 @@ my %TVCHAN_COMMAND_KEYS = (
   quitall  => [qw( DEL         )],
 );
 
+sub ensureIPCServerFifo($);
 sub findFiles($$);
 sub filterFilesIMDB($$);
 sub loadFile($$$$$$$);
@@ -190,12 +191,8 @@ sub main(@){
   open my $mpvCmdFH, "-|", @mpvCmd;
   my $ioSelect = IO::Select->new($mpvCmdFH);
 
-  sleep 0.5;
-  if(not -e $ipcServerFifo){
-    die "ERROR: ipc server fifo does not exist \"$ipcServerFifo\"\n";
-  }else{
-    print "IPC server fifo: $ipcServerFifo\n";
-  }
+  ensureIPCServerFifo($ipcServerFifo);
+  print "IPC server fifo: $ipcServerFifo\n";
 
   for my $propertyName(sort keys %$MPV_PROPERTIES){
     my $val = $$MPV_PROPERTIES{$propertyName};
@@ -256,6 +253,17 @@ sub main(@){
 
   }
   close $mpvCmdFH;
+}
+
+sub ensureIPCServerFifo($){
+  my ($ipcServerFifo) = @_;
+  my $startMillis = nowMillis();
+  while(not -e $ipcServerFifo){
+    if(nowMillis() - $startMillis > 1000){
+      die "ERROR: ipc server fifo does not exist \"$ipcServerFifo\"\n";
+    }
+    sleep 0.1;
+  }
 }
 
 sub findFiles($$){
