@@ -66,6 +66,7 @@ sub writeInputConf();
 sub writeMpvConf();
 sub writeInputCommands(@);
 sub socatJson($);
+sub setProperty($$);
 sub isPlaying();
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
@@ -221,6 +222,8 @@ sub main(@){
     print "IPC server fifo: $inputCmdFile\n";
   }
 
+  setProperty("force-window", "true");
+
   loadFile($files, $history, $dirs, $index, $unique, $begin);
   $start = time;
 
@@ -372,6 +375,13 @@ sub socatJson($){
   my $out = `echo '$json' | socat - $inputCmdFile 2>/dev/null`;
   chomp $out;
   return $out;
+}
+
+sub setProperty($$){
+  my ($property, $value) = @_;
+  my $json = "{ \"command\": [\"set_property\", \"$property\", $value] }";
+  my $out = socatJson $json;
+  print $out;
 }
 
 sub isPlaying(){
