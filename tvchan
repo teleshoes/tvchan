@@ -86,32 +86,27 @@ my $usage = "Usage:
 
   --show-progress
     after loading each file, run mpv command 'show-progress' (this is the default)
-
   --no-show-progress
     do not run mpv command 'show-progress' after loading each file
 
   --show-file
     after loading each file, run mpv command 'show-text' with the filename (this is the default)
-
   --no-show-file
     do not run mpv command 'show-text' after loading each file
 
   --osd-bar
     set mpv-property osd-bar=true (this is the default)
-
   --no-osd-bar
     set mpv-property osd-bar=false
 
   -fs | --fs | --fullscreen
     fullscreen: set mpv-property fullscreen=true (this is the default)
-
   -nofs | --nofs | -no-fs | --no-fs | --nofullscreen | --no-fullscreen
     no fullscreen: set mpv-property fullscreen=false (this is the default)
 
   --force-window
     set mpv-property force-window=true (this is the default)
     (reuse the same window for playback of all files)
-
   --no-force-window
     set mpv-property force-window=false
     (use a new window for playback of all files)
@@ -120,7 +115,7 @@ my $usage = "Usage:
      set geometry to mpv with mpv-property geometry=GEOMETRY
      e.g: '-geometry 500x500+50+50'
 
-  -t TITLE | -title TITLE | --title TITLE | --geometry=TITLE
+  -t TITLE | -title TITLE | --title TITLE | --title=TITLE
     set the mpv window title with mpv-property title=TITLE
     default is $DEFAULT_WINDOW_TITLE
 ";
