@@ -84,6 +84,12 @@ my $usage = "Usage:
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
 
+  --show-progress
+    after loading each file, run mpv command 'show-progress' (this is the default)
+
+  --no-show-progress
+    do not run mpv command 'show-progress' after loading each file
+
   --osd-bar
     set mpv-property osd-bar=true (this is the default)
 
@@ -118,6 +124,7 @@ sub main(@){
   my $music = 0;
   my $begin = 0;
   my $unique = 0;
+  my $showProgress = 1;
   my $osdBar = 1;
   my $fullscreen = 1;
   my $forceWindow = 1;
@@ -146,6 +153,10 @@ sub main(@){
       $autoSkipDelayMillis = int($autoSkipDelaySeconds * 1000 + 0.5);
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
+    }elsif($arg =~ /^(--show-progress)$/){
+      $showProgress = 1;
+    }elsif($arg =~ /^(--no-show-progress)$/){
+      $showProgress = 0;
     }elsif($arg =~ /^(--osd-bar)$/){
       $osdBar = 1;
     }elsif($arg =~ /^(--no-osd-bar)$/){
@@ -205,6 +216,7 @@ sub main(@){
   my $playOptions = {
     unique       => $unique,
     begin        => $begin,
+    showProgress => $showProgress,
   };
 
   my $mpvPropArr = [
@@ -403,8 +415,11 @@ sub loadFile($$$$){
 
   print "\n\nPLAYING: $file @ $pos\n\n";
   socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
+
   socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
-  socatJson($ipcServerFifo, "show-progress");
+  if($$playOptions{showProgress}){
+    socatJson($ipcServerFifo, "show-progress");
+  }
 }
 
 sub getRandomEntry($$){
