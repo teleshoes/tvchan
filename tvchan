@@ -225,7 +225,7 @@ sub startMPV($$$){
   push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
 
   my ($mpvPid, $mpvCmdFH);
-  $mpvPid = open $mpvCmdFH, "-|", @mpvCmd;
+  $mpvPid = open $mpvCmdFH, "-|", "script -q -f -c '@mpvCmd'";
 
   ensureIPCServerFifo($ipcServerFifo);
   print "IPC server fifo: $ipcServerFifo\n";
