@@ -41,11 +41,11 @@ my %TVCHAN_COMMAND_KEYS = (
 );
 
 sub startMPV($$$);
-sub runPlaylistCommand($$$$$$);
+sub runPlaylistCommand($$$$$);
 sub ensureIPCServerFifo($);
 sub findFiles($$);
 sub filterFilesIMDB($$);
-sub loadFile($$$$$);
+sub loadFile($$$$);
 sub getRandomEntry($$);
 sub getDuration($);
 sub writeInputConf($$);
@@ -202,6 +202,11 @@ sub main(@){
     dirs        => $dirs,
   };
 
+  my $playOptions = {
+    unique       => $unique,
+    begin        => $begin,
+  };
+
   my $mpvPropArr = [
      "video"        => ($music ? "false" : "true"),
      "osd-bar"      => ($osdBar ? "true" : "false"),
@@ -219,14 +224,14 @@ sub main(@){
 
   while(1){
     if(not isPlaying($ipcServerFifo)){
-      runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+      runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $playOptions);
     }
 
     if($$playlistState{autoSkip}){
       my $elapsedMillis = nowMillis() - $$playlistState{startMillis};
       if($elapsedMillis > $autoSkipDelayMillis){
         print "\nauto-skipped\n";
-        runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+        runPlaylistCommand("forward", $mpvPid, $ipcServerFifo, $playlistState, $playOptions);
       }
     }
 
@@ -236,7 +241,7 @@ sub main(@){
       print $line if defined $line;
       if(defined $line and $line =~ /tvchan-cmd:(\w+)/){
         my $cmd = $1;
-        runPlaylistCommand($cmd, $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+        runPlaylistCommand($cmd, $mpvPid, $ipcServerFifo, $playlistState, $playOptions);
       }
     }
   }
@@ -272,22 +277,22 @@ sub startMPV($$$){
   return ($mpvPid, $mpvCmdFH);
 }
 
-sub runPlaylistCommand($$$$$$){
-  my ($cmd, $mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
+sub runPlaylistCommand($$$$$){
+  my ($cmd, $mpvPid, $ipcServerFifo, $playlistState, $playOptions) = @_;
 
   if($cmd eq "back"){
     $$playlistState{index}--;
     $$playlistState{index} = 0 if $$playlistState{index} < 0;
-    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $playOptions);
   }elsif($cmd eq "forward"){
     my $historySize = @{$$playlistState{history}};
     $$playlistState{index}++;
     $$playlistState{index} = $historySize if $$playlistState{index} > $historySize;
-    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $playOptions);
   }elsif($cmd eq "end"){
     my $historySize = @{$$playlistState{history}};
     $$playlistState{index} = $historySize;
-    loadFile($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin);
+    loadFile($mpvPid, $ipcServerFifo, $playlistState, $playOptions);
   }elsif($cmd eq "quit"){
     socatJson($ipcServerFifo, "quit");
     system "kill", "-9", $mpvPid;
@@ -355,8 +360,8 @@ sub filterFilesIMDB($$){
   return $filteredFiles;
 }
 
-sub loadFile($$$$$){
-  my ($mpvPid, $ipcServerFifo, $playlistState, $unique, $begin) = @_;
+sub loadFile($$$$){
+  my ($mpvPid, $ipcServerFifo, $playlistState, $playOptions) = @_;
   my $files = $$playlistState{files};
   my $history = $$playlistState{history};
   my $index = $$playlistState{index};
@@ -371,10 +376,10 @@ sub loadFile($$$$$){
     ($file, $pos) = @{$$history[$index]};
   }else{
     die "no files found\n" if @$files == 0;
-    my $deleteEntry = $unique;
+    my $deleteEntry = $$playOptions{unique} ? 1 : 0;
     $file = getRandomEntry $files, $deleteEntry;
 
-    if($begin){
+    if($$playOptions{begin}){
       $pos = 0;
     }else{
       my $dur = getDuration($file);
