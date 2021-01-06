@@ -249,7 +249,6 @@ sub startMPV($$$){
 
   my @mpvCmd = ("mpv");
   push @mpvCmd, "--idle";
-  push @mpvCmd, "--quiet";
   push @mpvCmd, "--input-conf=$inputConfFile";
   push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
 
