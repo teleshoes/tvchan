@@ -331,6 +331,7 @@ sub findFiles($$){
     push @cmd, $dir;
   }
   @cmd = (@cmd, "-type", "f");
+  @cmd = (@cmd, "-not", "-empty");
   push @cmd, "-false";
   for my $ext(@$exts){
     push @cmd, ("-or", "-iname", "*.$ext");
