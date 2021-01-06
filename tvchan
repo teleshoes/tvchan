@@ -95,7 +95,7 @@ my $usage = "Usage:
   -fs | --fs | --fullscreen
     fullscreen: pass '--fs' to mpv (this is the default)
 
-  -nofs | --nofs | --nofullscreen
+  -nofs | --nofs | -no-fs | --no-fs | --nofullscreen
     no fullscreen: pass '--no-fs' to mpv
 
   -g GEOMETRY | -geometry GEOMETRY | --geometry GEOMETRY | --geometry=GEOMETRY
@@ -138,7 +138,7 @@ sub main(@){
       $autoSkip = 1;
     }elsif($arg =~ /^(-fs|--fs|--fullscreen)$/){
       $fullscreen = 1;
-    }elsif($arg =~ /^(-nofs|--nofs|--nofullscreen)$/){
+    }elsif($arg =~ /^(-nofs|--nofs|-no-fs|--no-fs|--nofullscreen)$/){
       $fullscreen = 0;
     }elsif($arg =~ /^--geometry=(.+)$/){
       $geometry = $1;
