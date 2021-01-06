@@ -50,24 +50,13 @@ my %TVCHAN_COMMAND_KEYS = (
   quitall  => [qw( DEL         )],
 );
 
-my $inputConf = {};
-for my $tvchanCmd(sort keys %TVCHAN_COMMAND_KEYS){
-  my @keynames = @{$TVCHAN_COMMAND_KEYS{$tvchanCmd}};
-  $$inputConf{$_} = "print-text tvchan-cmd:$tvchanCmd" foreach @keynames;
-}
-
-my $nowMillis = int(time*1000);
-my $inputCmdFile = "/tmp/mpv-tvchan-commands-$nowMillis";
-my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
-
-sub loadFile($$$$$$);
+sub loadFile($$$$$$$);
 sub getRandomEntry($$);
 sub getRandomPos($);
-sub writeInputConf();
-sub writeInputCommands(@);
-sub socatJson($);
-sub setProperty($$);
-sub isPlaying();
+sub writeInputConf($$);
+sub socatJson($$);
+sub setProperty($$$);
+sub isPlaying($);
 sub getProcLines(@);
 sub getProcLinesNoFail(@);
 sub canRead($);
@@ -159,7 +148,17 @@ sub main(@){
   }
   die "$usage\nERROR: must give at least one DIR\n" if @$dirs == 0;
 
-  writeInputConf;
+  my $nowMillis = int(time*1000);
+  my $ipcServerFifo = "/tmp/mpv-tvchan-commands-$nowMillis";
+  my $inputConfFile = "/tmp/mpv-tvchan-input-$nowMillis.conf";
+
+  my $inputConf = {};
+  for my $tvchanCmd(sort keys %TVCHAN_COMMAND_KEYS){
+    my @keynames = @{$TVCHAN_COMMAND_KEYS{$tvchanCmd}};
+    $$inputConf{$_} = "print-text tvchan-cmd:$tvchanCmd" foreach @keynames;
+  }
+
+  writeInputConf($inputConfFile, $inputConf);
 
   my @exts = $music ? (@EXTS_VIDEO, @EXTS_MUSIC) : (@EXTS_VIDEO);
 
@@ -196,13 +195,13 @@ sub main(@){
 
   my $start;
 
-  system "rm", "-f", $inputCmdFile;
+  system "rm", "-f", $ipcServerFifo;
 
   my @mpvCmd = ("mpv");
   push @mpvCmd, "--idle";
   push @mpvCmd, "--quiet";
   push @mpvCmd, "--input-conf=$inputConfFile";
-  push @mpvCmd, "--input-ipc-server=$inputCmdFile";
+  push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
   push @mpvCmd, "--title=$windowTitle";
   push @mpvCmd, ($fullscreen ? "--fs" : "--no-fs");
   push @mpvCmd, "--geometry=$geometry" if defined $geometry;
@@ -211,20 +210,20 @@ sub main(@){
   my $ioSelect = IO::Select->new($mpvCmdFH);
 
   sleep 0.5;
-  if(not -e $inputCmdFile){
-    die "ERROR: ipc server fifo does not exist \"$inputCmdFile\"\n";
+  if(not -e $ipcServerFifo){
+    die "ERROR: ipc server fifo does not exist \"$ipcServerFifo\"\n";
   }else{
-    print "IPC server fifo: $inputCmdFile\n";
+    print "IPC server fifo: $ipcServerFifo\n";
   }
 
   for my $propertyName(sort keys %$MPV_PROPERTIES){
     my $val = $$MPV_PROPERTIES{$propertyName};
     print "$propertyName\n";
-    setProperty($propertyName, $val);
+    setProperty($ipcServerFifo, $propertyName, $val);
     print "\n";
   }
 
-  loadFile($files, $history, $dirs, $index, $unique, $begin);
+  loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
   $start = time;
 
   while(1){
@@ -244,7 +243,7 @@ sub main(@){
       $cmd = "forward";
     }
 
-    if(not defined $cmd and not isPlaying()){
+    if(not defined $cmd and not isPlaying($ipcServerFifo)){
       $cmd = "forward";
     }
 
@@ -256,19 +255,19 @@ sub main(@){
     if($cmd eq "back"){
       $index--;
       $index = 0 if $index < 0;
-      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
       $start = time;
     }elsif($cmd eq "forward"){
       $index++;
       $index = @$history if $index > @$history;
-      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
       $start = time;
     }elsif($cmd eq "end"){
       $index = @$history;
-      loadFile($files, $history, $dirs, $index, $unique, $begin);
+      loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
       $start = time;
     }elsif($cmd eq "quit"){
-      writeInputCommands("quit");
+      socatJson($ipcServerFifo, "quit");
       exit 0;
     }elsif($cmd eq "autoskip"){
       $autoSkip = not $autoSkip;
@@ -282,8 +281,8 @@ sub main(@){
   close $mpvCmdFH;
 }
 
-sub loadFile($$$$$$){
-  my ($files, $history, $dirs, $index, $unique, $begin) = @_;
+sub loadFile($$$$$$$){
+  my ($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin) = @_;
 
   my ($file, $pos);
   if($index < @$history){
@@ -311,11 +310,9 @@ sub loadFile($$$$$$){
   }
 
   print "\n\nPLAYING: $file @ $pos\n\n";
-  writeInputCommands(
-    "loadfile \"$file\" replace \"start=$pos\"",
-    "show-text \"$msg\" 1500",
-    "show-progress",
-  );
+  socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
+  socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
+  socatJson($ipcServerFifo, "show-progress");
 }
 
 sub getRandomEntry($$){
@@ -343,7 +340,8 @@ sub getRandomPos($){
   return sprintf '%.2f', $pos;
 }
 
-sub writeInputConf(){
+sub writeInputConf($$){
+  my ($inputConfFile, $inputConf) = @_;
   my $conf = '';
   for my $key(keys %$inputConf){
     $conf .= "$key $$inputConf{$key}\n";
@@ -353,31 +351,28 @@ sub writeInputConf(){
   close FH;
 }
 
-sub writeInputCommands(@){
-  for my $cmd(@_){
-    socatJson $cmd;
-  }
-}
-sub socatJson($){
-  my ($json) = @_;
-  return if not -e $inputCmdFile;
+sub socatJson($$){
+  my ($ipcServerFifo, $json) = @_;
+  return undef if not -e $ipcServerFifo;
   $json =~ s/'/'\\''/g;
-  my $out = `echo '$json' | socat - $inputCmdFile 2>/dev/null`;
+  my $out = `echo '$json' | socat - $ipcServerFifo 2>/dev/null`;
   chomp $out;
   return $out;
 }
 
-sub setProperty($$){
-  my ($property, $value) = @_;
+sub setProperty($$$){
+  my ($ipcServerFifo, $property, $value) = @_;
   my $json = "{ \"command\": [\"set_property\", \"$property\", $value] }";
-  my $out = socatJson $json;
+  my $out = socatJson $ipcServerFifo, $json;
   print $out;
 }
 
-sub isPlaying(){
-  return 0 if not -e $inputCmdFile;
+sub isPlaying($){
+  my ($ipcServerFifo, $property, $value) = @_;
   my $json = '{ "command": ["get_property", "filename"] }';
-  my $out = socatJson $json;
+  my $out = socatJson $ipcServerFifo, $json;
+
+  return 0 if not defined $out;
 
   if($out =~ /"error":"success"/){
     return 1;
