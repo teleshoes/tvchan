@@ -47,7 +47,7 @@ sub findFiles($$);
 sub filterFilesIMDB($$);
 sub loadFile($$$$$);
 sub getRandomEntry($$);
-sub getRandomPos($);
+sub getDuration($);
 sub writeInputConf($$);
 sub socatJson($$);
 sub setProperty($$$);
@@ -373,7 +373,8 @@ sub loadFile($$$$$){
     if($begin){
       $pos = 0;
     }else{
-      $pos = getRandomPos $file;
+      my $dur = getDuration($file);
+      $pos = sprintf '%.2f', rand() * $dur;
     }
     push @$history, [$file, $pos];
   }
@@ -405,21 +406,17 @@ sub getRandomEntry($$){
   return $entry;
 }
 
-sub getRandomPos($){
+sub getDuration($){
   my $file = shift;
   die "Could not find \"$file\"\n" if not -f $file;
   my $durLines = getProcLines "duration", "-n", "-s", $file;
   my $dur;
   if(@$durLines == 1 and $$durLines[0] =~ /^(\d+|\d*\.\d+)$/){
-    $dur = $1;
-  }
-  if(not defined $dur){
+    return $1;
+  }else{
     print STDERR "ERROR: failed to obtain duration of $file\n";
     return 0;
   }
-
-  my $pos = rand() * $dur;
-  return sprintf '%.2f', $pos;
 }
 
 sub writeInputConf($$){
