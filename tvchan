@@ -25,7 +25,6 @@ my $DEFAULT_WINDOW_TITLE = "tvchan-mpv";
 my $DEFAULT_AUTO_SKIP_DELAY_MILLIS = 30000;
 
 my $MPV_PROPERTIES_ARR = [
-  "force-window" => "true",
   "osd-scale" => "1.5",
   "osd-scale-by-window" => "false",
   "osd-bar" => "true",
@@ -90,6 +89,14 @@ my $usage = "Usage:
   -nofs | --nofs | -no-fs | --no-fs | --nofullscreen
     no fullscreen: set mpv-property fullscreen=false (this is the default)
 
+  --force-window
+    set mpv-property force-window=true (this is the default)
+    (reuse the same window for playback of all files)
+
+  --no-force-window
+    set mpv-property force-window=false
+    (use a new window for playback of all files)
+
   -g GEOMETRY | -geometry GEOMETRY | --geometry GEOMETRY | --geometry=GEOMETRY
      set geometry to mpv with mpv-property geometry=GEOMETRY
      e.g: '-geometry 500x500+50+50'
@@ -105,6 +112,7 @@ sub main(@){
   my $begin = 0;
   my $unique = 0;
   my $fullscreen = 1;
+  my $forceWindow = 1;
   my $geometry = undef;
   my $windowTitle = $DEFAULT_WINDOW_TITLE;
   my $autoSkipDelayMillis = $DEFAULT_AUTO_SKIP_DELAY_MILLIS;
@@ -133,6 +141,10 @@ sub main(@){
       $fullscreen = 1;
     }elsif($arg =~ /^(-nofs|--nofs|-no-fs|--no-fs|--nofullscreen)$/){
       $fullscreen = 0;
+    }elsif($arg =~ /^(--force-window)$/){
+      $forceWindow = 1;
+    }elsif($arg =~ /^(--no-force-window)$/){
+      $forceWindow = 0;
     }elsif($arg =~ /^--geometry=(.+)$/){
       $geometry = $1;
     }elsif($arg =~ /^(-g|-geometry|--geometry)$/ and @_ > 0){
@@ -180,6 +192,7 @@ sub main(@){
   my $mpvPropArr = [
      "title"        => "\"$windowTitle\"",
      "fullscreen"   => ($fullscreen ? "true" : "false"),
+     "force-window" => ($forceWindow ? "true" : "false"),
      "geometry"     => (defined $geometry ? "\"$geometry\"" : "\"\""),
      @$MPV_PROPERTIES_ARR,
   ];
