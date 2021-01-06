@@ -50,6 +50,7 @@ my %TVCHAN_COMMAND_KEYS = (
   quitall  => [qw( DEL         )],
 );
 
+sub startMPV($$$$$);
 sub ensureIPCServerFifo($);
 sub findFiles($$);
 sub filterFilesIMDB($$);
@@ -177,29 +178,8 @@ sub main(@){
 
   my $startMillis;
 
-  system "rm", "-f", $ipcServerFifo;
-
-  my @mpvCmd = ("mpv");
-  push @mpvCmd, "--idle";
-  push @mpvCmd, "--quiet";
-  push @mpvCmd, "--input-conf=$inputConfFile";
-  push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
-  push @mpvCmd, "--title=$windowTitle";
-  push @mpvCmd, ($fullscreen ? "--fs" : "--no-fs");
-  push @mpvCmd, "--geometry=$geometry" if defined $geometry;
-
-  open my $mpvCmdFH, "-|", @mpvCmd;
+  my $mpvCmdFH = startMPV($inputConfFile, $ipcServerFifo, $windowTitle, $fullscreen, $geometry);
   my $ioSelect = IO::Select->new($mpvCmdFH);
-
-  ensureIPCServerFifo($ipcServerFifo);
-  print "IPC server fifo: $ipcServerFifo\n";
-
-  for my $propertyName(sort keys %$MPV_PROPERTIES){
-    my $val = $$MPV_PROPERTIES{$propertyName};
-    print "$propertyName\n";
-    setProperty($ipcServerFifo, $propertyName, $val);
-    print "\n";
-  }
 
   loadFile($ipcServerFifo, $files, $history, $dirs, $index, $unique, $begin);
   $startMillis = nowMillis();
@@ -253,6 +233,32 @@ sub main(@){
 
   }
   close $mpvCmdFH;
+}
+
+sub startMPV($$$$$){
+  my ($inputConfFile, $ipcServerFifo, $windowTitle, $fullscreen, $geometry) = @_;
+  system "rm", "-f", $ipcServerFifo;
+
+  my @mpvCmd = ("mpv");
+  push @mpvCmd, "--idle";
+  push @mpvCmd, "--quiet";
+  push @mpvCmd, "--input-conf=$inputConfFile";
+  push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
+  push @mpvCmd, "--title=$windowTitle";
+  push @mpvCmd, ($fullscreen ? "--fs" : "--no-fs");
+  push @mpvCmd, "--geometry=$geometry" if defined $geometry;
+
+  open my $mpvCmdFH, "-|", @mpvCmd;
+
+  ensureIPCServerFifo($ipcServerFifo);
+  print "IPC server fifo: $ipcServerFifo\n";
+
+  for my $propertyName(sort keys %$MPV_PROPERTIES){
+    my $val = $$MPV_PROPERTIES{$propertyName};
+    setProperty($ipcServerFifo, $propertyName, $val);
+  }
+
+  return $mpvCmdFH;
 }
 
 sub ensureIPCServerFifo($){
