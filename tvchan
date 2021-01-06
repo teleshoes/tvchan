@@ -159,14 +159,9 @@ sub main(@){
   }
   die "$usage\nERROR: must give at least one DIR\n" if @$dirs == 0;
 
-  my @exts = $music ? (@EXTS_VIDEO, @EXTS_MUSIC) : (@EXTS_VIDEO);
-
-  my @mpvArgs;
-  push @mpvArgs, ($fullscreen ? "--fs" : "--no-fs");
-  @mpvArgs = (@mpvArgs, "--geometry=$geometry") if defined $geometry;
-  push @mpvArgs, ("--title=$windowTitle");
-
   writeInputConf;
+
+  my @exts = $music ? (@EXTS_VIDEO, @EXTS_MUSIC) : (@EXTS_VIDEO);
 
   my @cmd;
   push @cmd, "find";
@@ -202,13 +197,15 @@ sub main(@){
   my $start;
 
   system "rm", "-f", $inputCmdFile;
-  my @mpvCmd = ("mpv",
-    @mpvArgs,
-    "--idle",
-    "--quiet",
-    "--input-conf=$inputConfFile",
-    "--input-ipc-server=$inputCmdFile",
-  );
+
+  my @mpvCmd = ("mpv");
+  push @mpvCmd, "--idle";
+  push @mpvCmd, "--quiet";
+  push @mpvCmd, "--input-conf=$inputConfFile";
+  push @mpvCmd, "--input-ipc-server=$inputCmdFile";
+  push @mpvCmd, "--title=$windowTitle";
+  push @mpvCmd, ($fullscreen ? "--fs" : "--no-fs");
+  push @mpvCmd, "--geometry=$geometry" if defined $geometry;
 
   open my $mpvCmdFH, "-|", @mpvCmd;
   my $ioSelect = IO::Select->new($mpvCmdFH);
