@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use POSIX ":sys_wait_h";
 use Time::HiRes qw(sleep time);
+use IO::Handle;
 use IO::Select;
 
 # tvchan
@@ -240,6 +241,8 @@ sub main(@){
     $inputConfFile, $ipcServerFifo, $mpvPropArr);
 
   my $ioSelect = IO::Select->new($mpvCmdFH);
+  my $ioHandle = IO::Handle->new_from_fd($mpvCmdFH, "r");
+  $ioHandle->blocking(0);
 
   while(1){
     if(not isPlaying($ipcServerFifo)){
@@ -256,7 +259,7 @@ sub main(@){
 
     my $line;
     if(canRead($ioSelect, 0.5)){
-      $line = <$mpvCmdFH>;
+      $line = $ioHandle->getline();
       print $line if defined $line;
       if(defined $line and $line =~ /tvchan-cmd:(\w+)/){
         my $cmd = $1;
