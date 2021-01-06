@@ -179,7 +179,7 @@ sub main(@){
   my $mpvPropArr = [
      title => "\"$windowTitle\"",
      fullscreen => ($fullscreen ? "true" : "false"),
-     geometry => "\"$geometry\"",
+     geometry => (defined $geometry ? "\"$geometry\"" : "\"\""),
      @$MPV_PROPERTIES_ARR,
   ];
 
