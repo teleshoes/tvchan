@@ -363,6 +363,8 @@ sub loadFile($$$$$){
     $msg = substr $msg, $len - $MAX_OSD_MSG_LEN;
   }
 
+  socatJson($ipcServerFifo, "stop");
+
   $$playlistState{startMillis} = nowMillis();
 
   print "\n\nPLAYING: $file @ $pos\n\n";
