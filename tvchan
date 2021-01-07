@@ -394,21 +394,21 @@ sub loadFile($$$$){
     die "ERROR: mpv is dead\n";
   }
 
-  my ($file, $pos);
+  my ($file, $pos, $dur);
   if($index < @$history){
-    ($file, $pos) = @{$$history[$index]};
+    ($file, $pos, $dur) = @{$$history[$index]};
   }else{
     die "no files found\n" if @$files == 0;
     my $deleteEntry = $$playOptions{unique} ? 1 : 0;
     $file = getRandomEntry $files, $deleteEntry;
 
+    $dur = getDuration($file);
     if($$playOptions{begin}){
       $pos = 0;
     }else{
-      my $dur = getDuration($file);
       $pos = sprintf '%.2f', rand() * $dur;
     }
-    push @$history, [$file, $pos];
+    push @$history, [$file, $pos, $dur];
   }
 
   my $msg = $file;
