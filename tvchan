@@ -90,9 +90,10 @@ my $usage = "Usage:
   --no-show-progress
     do not run mpv command 'show-progress' after loading each file (this is the default)
 
-  --show-file
-    after loading each file, run mpv command 'show-text' with the filename (this is the default)
-  --no-show-file
+  --show-message
+    after loading each file, run mpv command 'show-text' with a message (this is the default)
+    message is FILENAME, with DIRs removed from prefix
+  --no-show-message
     do not run mpv command 'show-text' after loading each file
 
   --osd-bar
@@ -127,7 +128,7 @@ sub main(@){
   my $begin = 0;
   my $unique = 0;
   my $showProgress = 0;
-  my $showFile = 1;
+  my $showMessage = 1;
   my $osdBar = 1;
   my $fullscreen = 1;
   my $forceWindow = 1;
@@ -160,10 +161,10 @@ sub main(@){
       $showProgress = 1;
     }elsif($arg =~ /^(--no-show-progress)$/){
       $showProgress = 0;
-    }elsif($arg =~ /^(--show-file)$/){
-      $showFile = 1;
-    }elsif($arg =~ /^(--no-show-file)$/){
-      $showFile = 0;
+    }elsif($arg =~ /^(--show-message)$/){
+      $showMessage = 1;
+    }elsif($arg =~ /^(--no-show-message)$/){
+      $showMessage = 0;
     }elsif($arg =~ /^(--osd-bar)$/){
       $osdBar = 1;
     }elsif($arg =~ /^(--no-osd-bar)$/){
@@ -224,7 +225,7 @@ sub main(@){
     unique       => $unique,
     begin        => $begin,
     showProgress => $showProgress,
-    showFile     => $showFile,
+    showMessage  => $showMessage,
   };
 
   my $mpvPropArr = [
@@ -426,7 +427,7 @@ sub loadFile($$$$){
   print "\n\nPLAYING: $file @ $pos\n\n";
   socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
 
-  if($$playOptions{showFile}){
+  if($$playOptions{showMessage}){
     socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
   }
   if($$playOptions{showProgress}){
