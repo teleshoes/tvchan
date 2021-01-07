@@ -86,9 +86,9 @@ my $usage = "Usage:
      autoskip is suspended/resumed when 'auto' key command is run
 
   --show-progress
-    after loading each file, run mpv command 'show-progress' (this is the default)
+    after loading each file, run mpv command 'show-progress'
   --no-show-progress
-    do not run mpv command 'show-progress' after loading each file
+    do not run mpv command 'show-progress' after loading each file (this is the default)
 
   --show-file
     after loading each file, run mpv command 'show-text' with the filename (this is the default)
@@ -126,7 +126,7 @@ sub main(@){
   my $music = 0;
   my $begin = 0;
   my $unique = 0;
-  my $showProgress = 1;
+  my $showProgress = 0;
   my $showFile = 1;
   my $osdBar = 1;
   my $fullscreen = 1;
