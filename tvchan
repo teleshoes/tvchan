@@ -57,6 +57,7 @@ sub getProcLines(@);
 sub getProcLinesNoFail(@);
 sub canRead($$);
 sub cmdFound($);
+sub formatHMS($);
 sub isRunning($);
 sub nowMillis();
 
@@ -92,7 +93,11 @@ my $usage = "Usage:
 
   --show-message
     after loading each file, run mpv command 'show-text' with a message (this is the default)
-    message is FILENAME, with DIRs removed from prefix
+    message is 'FILENAME POS / DUR (PCT%)'
+      FILENAME is file name, with DIRs removed from prefix
+      POS is the initial position formatted HH:MM:SS
+      DUR is the duration formatted HH:MM:SS
+      PCT is POS/DUR*100, rounded to the nearest integer
   --no-show-message
     do not run mpv command 'show-text' after loading each file
 
@@ -411,10 +416,15 @@ sub loadFile($$$$){
     push @$history, [$file, $pos, $dur];
   }
 
+  my $pct = ($dur == 0 ? 0 : int(100.0*$pos/$dur + 0.5)) . "%";
+
   my $msg = $file;
   for my $dir(@$dirs){
     $msg =~ s/^$dir//;
   }
+
+  $msg .= "  " . formatHMS($pos) . "/" . formatHMS($dur) . " ($pct)";
+
   my $len = length $msg;
   if($len > $MAX_OSD_MSG_LEN){
     $msg = substr $msg, $len - $MAX_OSD_MSG_LEN;
@@ -522,6 +532,15 @@ sub cmdFound($){
   }else{
     return 0;
   }
+}
+
+sub formatHMS($){
+  my ($t) = @_;
+  $t = int(0.5 + $t);
+  my $h = int($t / 60 / 60);
+  my $m = int($t / 60) % 60;
+  my $s = $t % 60;
+  return sprintf "%02d:%02d:%02d", $h, $m, $s;
 }
 
 sub isRunning($){
