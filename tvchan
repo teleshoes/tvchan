@@ -276,7 +276,7 @@ sub main(@){
     }
 
     my $line;
-    if(canRead($ioSelect, 0.5)){
+    while(canRead($ioSelect, 0.5)){
       $line = $ioHandle->getline();
       print $line if defined $line;
       if(defined $line and $line =~ /tvchan-cmd:(\w+)/){
