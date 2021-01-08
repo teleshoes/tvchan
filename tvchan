@@ -363,7 +363,6 @@ sub findFiles($$){
     push @cmd, $dir;
   }
   @cmd = (@cmd, "-type", "f");
-  @cmd = (@cmd, "-not", "-empty");
   push @cmd, "-false";
   for my $ext(@$exts){
     push @cmd, ("-or", "-iname", "*.$ext");
@@ -403,9 +402,21 @@ sub loadFile($$$$){
   if($index < @$history){
     ($file, $pos, $dur) = @{$$history[$index]};
   }else{
-    die "no files found\n" if @$files == 0;
-    my $deleteEntry = $$playOptions{unique} ? 1 : 0;
-    $file = getRandomEntry $files, $deleteEntry;
+    my $randomIndex = undef;
+    while(not defined $randomIndex){
+      die "no files found\n" if @$files == 0;
+      $randomIndex = rand @$files;
+      if(-z $$files[$randomIndex]){
+        #empty file, delete it and try again
+        splice @$files, $randomIndex, 1;
+        $randomIndex = undef;
+      }
+    }
+    $file = $$files[$randomIndex];
+    if($$playOptions{unique}){
+      #delete the file so it wont come up again
+      splice @$files, $randomIndex, 1;
+    }
 
     $dur = getDuration($file);
     if($$playOptions{begin}){
