@@ -74,7 +74,10 @@ my $usage = "Usage:
   -m | --music
     include (@EXTS_MUSIC) instead of just (@EXTS_VIDEO)
     set mpv-property video=false (audio-only, do not show video, like --no-video)
-    implies --no-force-window, but this can be overridden with a later --force-window
+    implies the following options, which can be overridden with additional options:
+      --no-force-window
+      --no-show-progress
+      --no-show-message
 
   -s STRING | --search STRING | --imdb STRING
     use 'imdb' crawling+caching script to filter files
@@ -151,6 +154,8 @@ sub main(@){
     }elsif($arg =~ /^(-m|--music)$/){
       $music = 1;
       $forceWindow = 0;
+      $showProgress = 0;
+      $showMessage = 0;
     }elsif($arg =~ /^(-s|--search|--imdb)$/ and @_ > 0){
       $imdbQuery = shift;
     }elsif($arg =~ /^--autoskip=(\d+|\d*\.\d+)$/){
