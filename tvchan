@@ -445,6 +445,8 @@ sub loadFile($$$$){
 
   $$playlistState{startMillis} = nowMillis();
 
+  $file =~ s/"/\\"/g;
+
   print "\n\nPLAYING: $file @ $pos\n\n";
   socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
 
