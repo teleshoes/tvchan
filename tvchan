@@ -89,6 +89,9 @@ my $usage = "Usage:
      autoskip timer is reset when a new video is opened
      autoskip is suspended/resumed when 'auto' key command is run
 
+  --delay=DELAY_SECONDS
+    sleep for DELAY_SECONDS seconds before starting each file
+
   --show-progress
     after loading each file, run mpv command 'show-progress'
   --no-show-progress
@@ -143,6 +146,7 @@ sub main(@){
   my $geometry = undef;
   my $windowTitle = $DEFAULT_WINDOW_TITLE;
   my $autoSkipDelayMillis = $DEFAULT_AUTO_SKIP_DELAY_MILLIS;
+  my $delayMillis = 0;
   my $imdbQuery;
   my $dirs = [];
   while(@_ > 0){
@@ -167,6 +171,8 @@ sub main(@){
       $autoSkipDelayMillis = int($autoSkipDelaySeconds * 1000 + 0.5);
     }elsif($arg =~ /^(-a|--autoskip)$/){
       $autoSkip = 1;
+    }elsif($arg =~ /^--delay=(\d+|\d*\.\d+)$/){
+      $delayMillis = int($1 * 1000 + 0.5);
     }elsif($arg =~ /^(--show-progress)$/){
       $showProgress = 1;
     }elsif($arg =~ /^(--no-show-progress)$/){
@@ -236,6 +242,7 @@ sub main(@){
     begin        => $begin,
     showProgress => $showProgress,
     showMessage  => $showMessage,
+    delayMillis  => $delayMillis,
   };
 
   my $mpvPropArr = [
@@ -447,6 +454,10 @@ sub loadFile($$$$){
   }
 
   socatJson($ipcServerFifo, "stop");
+
+  if($$playOptions{delayMillis} > 0){
+    sleep $$playOptions{delayMillis}/1000.0;
+  }
 
   $$playlistState{startMillis} = nowMillis();
 
