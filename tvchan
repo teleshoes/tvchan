@@ -445,9 +445,11 @@ sub loadFile($$$$){
 
   $$playlistState{startMillis} = nowMillis();
 
-  $file =~ s/"/\\"/g;
-
+  print "\r";
   print "\n\nPLAYING: $file @ $pos\n\n";
+  print "\r";
+
+  $file =~ s/"/\\"/g;
   socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
 
   if($$playOptions{showMessage}){
@@ -503,7 +505,6 @@ sub setProperty($$$){
   my ($ipcServerFifo, $property, $value) = @_;
   my $json = "{ \"command\": [\"set_property\", \"$property\", $value] }";
   my $out = socatJson $ipcServerFifo, $json;
-  print $out;
 }
 
 sub isPlaying($){
@@ -518,7 +519,6 @@ sub isPlaying($){
   }elsif($out =~ /"error":"property unavailable"/){
     return 0;
   }
-  print "$out\n";
 
   return 0;
 }
