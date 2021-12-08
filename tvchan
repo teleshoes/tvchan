@@ -24,6 +24,7 @@ my @EXTS_MUSIC = qw(mp3 flac ogg m4a wma wav);
 my $MAX_OSD_MSG_LEN = 80;
 my $DEFAULT_WINDOW_TITLE = "tvchan-mpv";
 my $DEFAULT_AUTO_SKIP_DELAY_MILLIS = 30000;
+my $DEFAULT_INPUT_CONF = "$ENV{HOME}/.config/mpv/input.conf";
 
 my $MPV_PROPERTIES_ARR = [
   "osd-scale" => "1.5",
@@ -220,6 +221,9 @@ sub main(@){
   }
 
   writeInputConf($inputConfFile, $inputConf);
+  if(-f $DEFAULT_INPUT_CONF){
+    appendFile($inputConfFile, readFile($DEFAULT_INPUT_CONF));
+  }
 
   my $exts = $music ? [@EXTS_VIDEO, @EXTS_MUSIC] : [@EXTS_VIDEO];
 
