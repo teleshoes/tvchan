@@ -503,8 +503,29 @@ sub writeInputConf($$){
   for my $key(keys %$inputConf){
     $conf .= "$key $$inputConf{$key}\n";
   }
-  open FH, "> $inputConfFile" or die "Could not write to $inputConfFile\n";
-  print FH $conf;
+  writeFile($inputConfFile, $conf);
+}
+
+sub readFile($){
+  my ($file) = @_;
+
+  open FH, "< $file" or die "Could not read $file\n$!\n";
+  my $contents = join '', <FH>;
+  close FH;
+  return $contents;
+}
+sub writeFile($$){
+  my ($file, $contents) = @_;
+
+  open FH, "> $file" or die "Could not write $file\n$!\n";
+  print FH $contents;
+  close FH;
+}
+sub appendFile($$){
+  my ($file, $contents) = @_;
+
+  open FH, ">> $file" or die "Could not append $file\n$!\n";
+  print FH $contents;
   close FH;
 }
 
