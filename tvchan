@@ -109,9 +109,9 @@ my $usage = "Usage:
     do not run mpv command 'show-text' after loading each file
 
   --osd-bar
-    set mpv-property osd-bar=true (this is the default)
+    set mpv-property osd-bar=true
   --no-osd-bar
-    set mpv-property osd-bar=false
+    set mpv-property osd-bar=false (this is the default)
 
   -fs | --fs | --fullscreen
     fullscreen: set mpv-property fullscreen=true (this is the default)
@@ -141,7 +141,7 @@ sub main(@){
   my $unique = 0;
   my $showProgress = 0;
   my $showMessage = 1;
-  my $osdBar = 1;
+  my $osdBar = 0;
   my $fullscreen = 1;
   my $forceWindow = 1;
   my $geometry = undef;
