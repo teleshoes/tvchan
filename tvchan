@@ -470,7 +470,7 @@ sub loadFile($$$$){
   print "\r";
 
   $file =~ s/"/\\"/g;
-  socatJson($ipcServerFifo, "loadfile \"$file\" replace \"start=$pos\"");
+  socatJson($ipcServerFifo, "loadfile \"$file\" replace 0 \"start=$pos\"");
 
   if($$playOptions{showMessage}){
     socatJson($ipcServerFifo, "show-text \"$msg\" 1500");
