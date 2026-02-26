@@ -296,10 +296,28 @@ sub startMPV($$$){
   my ($inputConfFile, $ipcServerFifo, $mpvPropertiesArr) = @_;
   system "rm", "-f", $ipcServerFifo;
 
+  my $initialFile = "/tmp/tvchan-empty.mp4";
+  if(not -f $initialFile){
+    system "ffmpeg",
+      "-y",
+      "-f", "lavfi",
+      "-i", "testsrc=size=200x200:rate=1",
+      "-vf", "hue=s=0",
+      "-vcodec", "libx264",
+      "-preset", "superfast",
+      "-tune", "zerolatency",
+      "-pix_fmt", "yuv420p",
+      "-t", "0.001",
+      "-movflags", "+faststart",
+      $initialFile,
+    ;
+  }
+
   my @mpvCmd = ("mpv");
   push @mpvCmd, "--idle";
   push @mpvCmd, "--input-conf=$inputConfFile";
   push @mpvCmd, "--input-ipc-server=$ipcServerFifo";
+  push @mpvCmd, "$initialFile";
 
   my $cmd = "@mpvCmd";
   if(cmdFound("script")){
